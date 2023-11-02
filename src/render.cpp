@@ -1,6 +1,3 @@
-#ifndef RENDER_H
-#define RENDER_H
-
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -12,65 +9,12 @@
 #include <unordered_map>
 #include <chrono>
 #include <glm/gtx/hash.hpp>
-#include <physics.h>
 
-#include <shader.h>
-#include <camera.h>
+#include <data_structures.h>
 
 
-// defined in main.cpp
-extern const unsigned int SCR_WIDTH;
-extern const unsigned int SCR_HEIGHT;
-extern Camera camera;
-extern int voxel_x_num, voxel_y_num, voxel_z_num;
-extern const int particle_num;
 
-// defined in physics.h
-extern const GLfloat x_max, x_min, y_max, y_min, z_max, z_min;
-extern const float voxel_size_scale;
 
-// pre-defined colors
-glm::vec4 red = glm::vec4(1.f, 0.f, 0.f, 1.0f);
-glm::vec4 green = glm::vec4(0.f, 1.f, 0.f, 1.0f);
-glm::vec4 blue = glm::vec4(0.f, 0.f, 1.f, 1.0f);
-glm::vec4 black = glm::vec4(0.f, 0.f, 0.f, 1.0f);
-glm::vec4 cube_color = glm::vec4(0.4f, 0.4f, 1.f, 1.0f);
-glm::vec4 cube_edge_color = glm::vec4(0.8f, 0.8f, 1.f, 1.0f);
-glm::vec4 boundary_color = glm::vec4(0.2f, 0.2f, 0.f, 1.0f);
-glm::vec4 particle_color = glm::vec4(0.8f, 0.9f, 0.f, 1.0f);
-
-// set up voxel field
-void set_up_voxel_field(voxel_field& V) {
-    voxel v1;
-    v1.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-    v1.density = 1.0f;
-    v1.exist = true;
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            for (int k = 0; k < 4; k++) {
-				V.set_voxel(i, j, k, v1);
-			}
-        }
-    }
-   
-}
-
-// set up particle system
-void set_up_SPH_particles(std::vector<particle>& P) {
-    particle p1;
-    // p1.currPos = generateRandomVec3();
-    p1.prevPos = glm::vec3(0.0f, 0.0f, 0.0f);
-    p1.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
-    p1.acceleration = glm::vec3(0.0f, 0.0f, 0.0f);
-    p1.pamameters = glm::vec3(0.0f, 0.0f, 0.0f);
-    p1.deltaCs = glm::vec3(0.0f, 0.0f, 0.0f);
-
-    for (int i = 0; i < P.size(); i++) {
-        p1.currPos = generateRandomVec3();
-        P[i] = p1;
-    }
-
-}
 
 
 
@@ -241,10 +185,10 @@ void set_up_cube_base_rendering(unsigned int cube_VBO[2], unsigned int cube_VAO[
 }
 
 // render a single cube given transformation matrix 'model'
-void render_cube(Shader& ourShader, unsigned int cube_VBO[2], unsigned int cube_VAO[2], glm::mat4 model = glm::mat4(1.0f), glm::vec4 color = cube_color) {
+void render_cube(Shader& ourShader, unsigned int cube_VBO[2], unsigned int cube_VAO[2], glm::mat4 model, glm::vec4 color) {
     // activate selected shader
     ourShader.use();
-
+    
 
     // get VP matrix and set it together with Model matrix
     glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.5f, 100.0f);
@@ -395,7 +339,7 @@ void set_up_sphere_rendering(unsigned int& sphereVBO, unsigned int& sphereVAO, u
 }
 
 // render a single sphere given transformation matrix 'model', didn't use in this project
-void render_sphere(Shader& ourShader, unsigned int& sphere_VBO, unsigned int& sphere_VAO, unsigned int& sphereEBO, glm::mat4 model = glm::mat4(1.0f)) {
+void render_sphere(Shader& ourShader, unsigned int& sphere_VBO, unsigned int& sphere_VAO, unsigned int& sphereEBO, glm::mat4 model) {
     // activate selected shader
     ourShader.use();
     glBindVertexArray(sphere_VAO);
@@ -534,10 +478,14 @@ void render_voxel_field(voxel_field& V, Shader& ourShader, unsigned int cube_VBO
                     glm::mat4 model = glm::scale(glm::translate(glm::mat4(1.0f), voxel_to_world(i, j, k)), glm::vec3(voxel_size_scale));
                     render_cube(ourShader, cube_VBO, cube_VAO, model,v.color);
                 }
+                // debug
+                if (v.debug) {
+                    glm::mat4 model = glm::scale(glm::translate(glm::mat4(1.0f), voxel_to_world(i, j, k)), glm::vec3(voxel_size_scale));
+                    render_cube(ourShader, cube_VBO, cube_VAO, model, glm::vec4(0.5f, 0.f, 1.f, 1.0f));
+                }
             }
         }
     }
 }
 
-
-#endif
+//void render_debug

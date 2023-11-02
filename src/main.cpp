@@ -24,8 +24,25 @@
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl3.h"
 
-#include <physics.h>
-#include <render.h>
+#include <data_structures.h>
+
+// some color setting in data_structures
+extern glm::vec4 red = glm::vec4(1.f, 0.f, 0.f, 1.0f);
+extern glm::vec4 green = glm::vec4(0.f, 1.f, 0.f, 1.0f);
+extern glm::vec4 blue = glm::vec4(0.f, 0.f, 1.f, 1.0f);
+extern glm::vec4 black = glm::vec4(0.f, 0.f, 0.f, 1.0f);
+extern glm::vec4 cube_color = glm::vec4(0.4f, 0.4f, 1.f, 1.0f);
+extern glm::vec4 cube_edge_color = glm::vec4(0.8f, 0.8f, 1.f, 1.0f);
+extern glm::vec4 boundary_color = glm::vec4(0.2f, 0.2f, 0.f, 1.0f);
+extern glm::vec4 particle_color = glm::vec4(0.8f, 0.9f, 0.f, 1.0f);
+
+
+// some debug shit
+unsigned int  global_cube_VBO[2];
+unsigned int  global_cube_VAO[2];
+Shader * global_ourShader;
+
+
 
 const bool _vSync = true; // Enable vsync
 
@@ -62,16 +79,18 @@ extern const GLfloat x_max = 3.0f, x_min = 0.0f, y_max = 3.0f, y_min = 0.0f, z_m
 bounding_box boundary = bounding_box(x_max, x_min, y_max, y_min, z_max, z_min);
 
 // voxel field
-extern int voxel_x_num = 12, voxel_y_num = 12, voxel_z_num = 8;
-// this will inicate the beginning of the voxel field(x=y=z=0) in world space
-extern const float voxel_x_origin = 0.125;
-extern const float voxel_y_origin = 0.125;
-extern const float voxel_z_origin = 0.125;
+extern int voxel_x_num = (x_max- x_min)/voxel_size_scale, voxel_y_num = (y_max - y_min) / voxel_size_scale, voxel_z_num = (z_max - z_min) / voxel_size_scale;
+
 // this will adjust voxel size, the voxel size will be voxel_size_scale * 1
 extern const float voxel_size_scale = 0.25;
+// this will inicate the beginning of the voxel field(x=y=z=0) in world space
+extern const float voxel_x_origin = voxel_size_scale/2;
+extern const float voxel_y_origin = voxel_size_scale/2;
+extern const float voxel_z_origin = voxel_size_scale/2;
+
 voxel_field V = voxel_field(voxel_x_num, voxel_y_num, voxel_z_num);
 
-extern const int particle_num = 2;
+extern const int particle_num = 300;
 
 // particle set
 std::vector<particle> particles(particle_num);
@@ -81,6 +100,8 @@ bool time_stop = true;
 bool regenerate = false;
 // tracking space key press
 bool isSpaceKeyPressed = false;
+bool isRightKeyPressed = false;
+bool next_frame_request = false;
 
 
 
@@ -175,8 +196,10 @@ int main()
     // set up basic cube
     unsigned int cube_VBO[2];
     unsigned int cube_VAO[2];
+    
     set_up_cube_base_rendering(cube_VBO, cube_VAO);
 
+    
 
     // set up boundary
     unsigned int bound_VBO[2], bound_VAO[2];
@@ -214,7 +237,7 @@ int main()
 
     // print out the configuration of the simulation
     std::cout << "----------SPH erosion simulation------------" << std::endl;
-    std::cout << "smoothing length: " << particle_radius* smoothing_length << std::endl;
+    std::cout << "smoothing length: " << particle_radius * smoothing_length << std::endl;
     std::cout << "particle viscosity: " << particle_viscosity << std::endl;
     std::cout << "wall damping : " << wall_damping << std::endl;
     printf("boundary setting: x_max %.1f x_min %.1f y_max %.1f y_min %.1f z_max %.1f z_min %.1f \n", x_max,x_min,y_max,y_min,z_max,z_min);
@@ -279,8 +302,14 @@ int main()
             }
             
         }
+        else {
+            if (next_frame_request) {
+				calculate_SPH_movement(particles, 0.0167, V);
+				next_frame_request = false;
+			}
+        }
 
-
+        next_frame_request = false;
 
 
         // render part is here
@@ -307,8 +336,7 @@ int main()
         render_SPH_particles(particles, instance_shader, sphere_VBO, sphere_VAO, sphere_EBO, particle_instance_VBO);
 
 
-        int debug_particle_index = 0;
-        int d = debug_particle_index;
+        
 
 
         // std::cout <<"pos"<< particles[d].currPos[0]<<" "<<          particles[d].currPos[1]<<" "<<          particles[d].currPos[2]<<std::endl;
@@ -403,6 +431,17 @@ void processInput(GLFWwindow *window)
 
     if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
         regenerate = true;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+        if (!isRightKeyPressed) {
+            std::cout << "next frame" << std::endl;
+            next_frame_request = true;
+        }
+        isRightKeyPressed = true;
+    }
+    else {
+        isRightKeyPressed = false;
     }
 }
 
