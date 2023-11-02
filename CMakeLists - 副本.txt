@@ -6,9 +6,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(Voxel_Fluid_Erosion VERSION 0.1)
 
-find_package(OpenMP REQUIRED)
-
-
 ### CMake Options
 if (PROJECT_BINARY_DIR STREQUAL PROJECT_SOURCE_DIR)
     message(WARNING "The binary directory of CMake cannot be the same as source directory!")
@@ -67,19 +64,7 @@ add_executable(${PROJECT_NAME} ${SOURCES} ${IMGUI_FILES})
 
 target_include_directories(${PROJECT_NAME} PRIVATE include)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC glfw OpenMP::OpenMP_CXX)
-
-include(CMakePrintHelpers)
-cmake_print_properties(
-TARGETS
-OpenMP::OpenMP_CXX
-PROPERTIES
-INTERFACE_COMPILE_OPTIONS
-INTERFACE_INCLUDE_DIRECTORIES
-INTERFACE_LINK_LIBRARIES
-)
-
-
+target_link_libraries(${PROJECT_NAME} PUBLIC glfw)
 
 # set output directories
 set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY_RELEASE   ${CMAKE_CURRENT_SOURCE_DIR}/bin/Release)

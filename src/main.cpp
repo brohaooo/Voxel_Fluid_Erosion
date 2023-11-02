@@ -26,6 +26,10 @@
 
 #include <data_structures.h>
 
+
+#include <omp.h>
+int numThreads = 16; // 指定线程数量
+
 // some color setting in data_structures
 extern glm::vec4 red = glm::vec4(1.f, 0.f, 0.f, 1.0f);
 extern glm::vec4 green = glm::vec4(0.f, 1.f, 0.f, 1.0f);
@@ -75,14 +79,14 @@ std::list<float> frameTime_list;
 
 
 // boundary, see details in physics.h
-extern const GLfloat x_max = 3.0f, x_min = 0.0f, y_max = 3.0f, y_min = 0.0f, z_max = 2.0f, z_min = 0.0f;
+extern const GLfloat x_max = 6.0f, x_min = 0.0f, y_max = 6.0f, y_min = 0.0f, z_max = 4.0f, z_min = 0.0f;
 bounding_box boundary = bounding_box(x_max, x_min, y_max, y_min, z_max, z_min);
 
 // voxel field
 extern int voxel_x_num = (x_max- x_min)/voxel_size_scale, voxel_y_num = (y_max - y_min) / voxel_size_scale, voxel_z_num = (z_max - z_min) / voxel_size_scale;
 
 // this will adjust voxel size, the voxel size will be voxel_size_scale * 1
-extern const float voxel_size_scale = 0.25;
+extern const float voxel_size_scale = 0.5;
 // this will inicate the beginning of the voxel field(x=y=z=0) in world space
 extern const float voxel_x_origin = voxel_size_scale/2;
 extern const float voxel_y_origin = voxel_size_scale/2;
@@ -90,7 +94,7 @@ extern const float voxel_z_origin = voxel_size_scale/2;
 
 voxel_field V = voxel_field(voxel_x_num, voxel_y_num, voxel_z_num);
 
-extern const int particle_num = 300;
+extern const int particle_num = 2000;
 
 // particle set
 std::vector<particle> particles(particle_num);
@@ -108,6 +112,10 @@ bool next_frame_request = false;
 
 int main()
 {
+    omp_set_num_threads(numThreads); // 设置线程数量
+
+
+
 
     // glfw: initialize and configure
     // ------------------------------
@@ -237,13 +245,13 @@ int main()
 
     // print out the configuration of the simulation
     std::cout << "----------SPH erosion simulation------------" << std::endl;
-    std::cout << "smoothing length: " << particle_radius * smoothing_length << std::endl;
+    std::cout << "smoothing length: " << smoothing_length << std::endl;
     std::cout << "particle viscosity: " << particle_viscosity << std::endl;
     std::cout << "wall damping : " << wall_damping << std::endl;
     printf("boundary setting: x_max %.1f x_min %.1f y_max %.1f y_min %.1f z_max %.1f z_min %.1f \n", x_max,x_min,y_max,y_min,z_max,z_min);
     std::cout << "voxel_size: " << voxel_size_scale << std::endl; int voxel_x_num = 12, voxel_y_num = 12, voxel_z_num = 8;
     printf("voxel setting: voxel_x_num %i voxel_y_num %i voxel_z_num %i \n", voxel_x_num, voxel_y_num, voxel_z_num);
-
+    std::cout << "voxel_density_threshold : " << voxel_density_threshold << std::endl;
 
 
     // render loop
@@ -295,16 +303,19 @@ int main()
         if (!time_stop) {
             if (!is_realtime) {
                 calculate_SPH_movement(particles, 0.0167, V);
+                calculate_voxel_erosion(particles, 0.0167, V);
                 
             }
             else {
                 calculate_SPH_movement(particles, deltaTime, V);
+                calculate_voxel_erosion(particles, deltaTime, V);
             }
             
         }
         else {
             if (next_frame_request) {
 				calculate_SPH_movement(particles, 0.0167, V);
+                calculate_voxel_erosion(particles, 0.0167, V);
 				next_frame_request = false;
 			}
         }

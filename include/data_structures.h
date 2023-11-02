@@ -43,7 +43,7 @@ const float particle_viscosity = 250.0f;
 const glm::vec3 gravity_force = glm::vec3(0.0f, -10.0f, 0.0f);
 const float particle_stiffness = 200.0f; // aka K
 const float wall_damping = 0.8f;
-
+const float voxel_density_threshold = 0.01f;
 
 
 
@@ -125,7 +125,7 @@ struct particle {
 
 void calculate_SPH_movement(std::vector<particle>& p, float frameTimeDiff, voxel_field& V);
 
-
+void calculate_voxel_erosion(std::vector<particle>& p, float frameTimeDiff, voxel_field& V);
 
 
 

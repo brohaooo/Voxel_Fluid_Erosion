@@ -22,11 +22,11 @@ extern const float voxel_size_scale;
 void set_up_voxel_field(voxel_field& V) {
     voxel v1;
     v1.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-    v1.density = 1.0f;
+    v1.density = 50000.0f;
     v1.exist = true;
-    for (int i = 5; i < 9; i++) {
-        for (int j = 1; j < 5; j++) {
-            for (int k = 1; k < 5; k++) {
+    for (int i = 2; i < 12; i++) {
+        for (int j = 0; j < 6; j++) {
+            for (int k = 0; k < 6; k++) {
                 V.set_voxel(i, j, k, v1);
             }
         }
@@ -318,6 +318,7 @@ glm::vec3 generateRandomVec3(float _x_max, float _x_min, float _y_max, float _y_
 void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxel_field & V) {
     int particle_num = p.size();
     // for each particle, calculate the density and pressure
+    #pragma omp parallel for
     for (int i = 0; i < particle_num; i++) {
         int cnt = 0;
         float density_sum = 0.f;
@@ -335,6 +336,7 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
         p[i].pamameters[2] = float(cnt);
     }
     // for each particle, calculate the force and acceleration
+    #pragma omp parallel for
     for (int i = 0; i < particle_num; i++) {
         glm::vec3 pressure_force = glm::vec3(0.0f, 0.0f, 0.0f);
         glm::vec3 viscosity_force = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -380,6 +382,7 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
 
 
     // for each particle, calculate the velocity and new position
+    #pragma omp parallel for
     for (int i = 0; i < particle_num; i++) {
         glm::vec3 new_velocity = (p[i].velocity + frameTimeDiff * p[i].acceleration);
         glm::vec3 old_velocity = p[i].velocity;
@@ -525,7 +528,8 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
                 if (current_v->exist) {
                     //std::cout<<"collide!"<<std::endl;
                     //std::cout << current_voxel_index[0]<<"," << current_voxel_index[1] << "," << current_voxel_index[2] << std::endl;
-                    current_v->color = glm::vec4(1.f, 0.f, 1.f, 1.0f);
+                    // collide visualization!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                    // current_v->color = glm::vec4(1.f, 0.f, 1.f, 1.0f);
                     // get the collision point
                     //glm::vec3 collision_point = p[i].prevPos + (t_current) * ray_direction;
                     // std::cout << "collision point" << collision_point.x << " " << collision_point.y << " " << collision_point.z << std::endl;
@@ -615,7 +619,36 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
         // 
         // }
 
-      
     }
+}
+
+void calculate_voxel_erosion(std::vector<particle>& p, float frameTimeDiff, voxel_field& V) {
+    #pragma omp parallel for collapse(3)
+    for (int i = 0; i < V.x_size; i++) {
+        for (int j = 0; j < V.y_size; j++) {
+            for (int k = 0; k < V.z_size; k++) {
+                voxel * v = &V.get_voxel(i,j,k);
+                if (v->exist) {
+                    for (int n = 0; n < particle_num; n++) {
+                        glm::vec3 delta = (p[n].currPos - voxel_to_world(i, j, k));
+						float r = length(delta);
+                        if (r < smoothing_length) {
+							v->density -= particle_mass * /* poly6 kernel */ 315.f * glm::pow(smoothing_length * smoothing_length - r * r, 3.f) / (64.f * PI_FLOAT * glm::pow(smoothing_length, 9));
+						} 
+                        if (v->density < voxel_density_threshold) {
+                            v->exist = false;
+                        }
+
+                    }
+
+
+					//v->color = glm::vec4(0.f, 0.f, 0.f, 1.0f);
+				}
+
+            }
+        }
+    }
+
+
 
 }
