@@ -19,13 +19,13 @@ extern const float voxel_size_scale;
 
 
 // set up voxel field
-void set_up_voxel_field(voxel_field& V) {
+void set_up_voxel_field(voxel_field& V, float voxel_density) {
     voxel v1;
-    v1.color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-    v1.density = 50000.0f;
+    v1.color = glm::vec4(0.5f, 1.0f, 1.0f, 1.0f);
+    v1.density = voxel_density;
     v1.exist = true;
-    for (int i = 2; i < 12; i++) {
-        for (int j = 0; j < 6; j++) {
+    for (int i = 2; i < 11; i++) {
+        for (int j = 0; j < 5; j++) {
             for (int k = 0; k < 6; k++) {
                 V.set_voxel(i, j, k, v1);
             }
@@ -33,6 +33,17 @@ void set_up_voxel_field(voxel_field& V) {
     }
 
 }
+
+void refresh_debug(voxel_field& V) {
+    for (int i = 0; i < V.x_size; i++) {
+        for (int j = 0; j < V.y_size; j++) {
+            for (int k = 0; k < V.z_size; k++) {
+				V.get_voxel(i, j, k).debug = false;
+			}
+		}
+	}
+}
+
 
 // set up particle system
 void set_up_SPH_particles(std::vector<particle>& P) {
@@ -51,7 +62,7 @@ void set_up_SPH_particles(std::vector<particle>& P) {
         P[i] = p1;
     }
 
-    //P[0].currPos = glm::vec3(0.125f, 1.0f, 0.125f);
+    P[0].currPos = glm::vec3(2.4f, 3.0f, 2.5f);
     //P[1].currPos = glm::vec3(0.115f, 2.111f, 0.125f);
 
 }
@@ -165,6 +176,18 @@ std::vector<float> voxel_to_world_6_face(int x, int y, int z) {
     res.push_back(y * voxel_size_scale + voxel_y_origin - voxel_size_scale/2);
     res.push_back(z * voxel_size_scale + voxel_z_origin + voxel_size_scale/2);
     res.push_back(z * voxel_size_scale + voxel_z_origin - voxel_size_scale/2);
+    return res;
+};
+
+// trick version of voxel_to_world_6_face(), assmune the voxel is a little bit bigger than the real voxel
+std::vector<float> voxel_to_world_6_face_extend(int x, int y, int z) {
+    std::vector<float> res;// {x_pos,x_neg,y_pos,y_neg,z_pos,z_neg}
+    res.push_back(x * voxel_size_scale + voxel_x_origin + (voxel_size_scale*1.001f) / 2);
+    res.push_back(x * voxel_size_scale + voxel_x_origin - (voxel_size_scale*1.001f) / 2);
+    res.push_back(y * voxel_size_scale + voxel_y_origin + (voxel_size_scale*1.001f) / 2);
+    res.push_back(y * voxel_size_scale + voxel_y_origin - (voxel_size_scale*1.001f) / 2);
+    res.push_back(z * voxel_size_scale + voxel_z_origin + (voxel_size_scale*1.001f) / 2);
+    res.push_back(z * voxel_size_scale + voxel_z_origin - (voxel_size_scale*1.001f) / 2);
     return res;
 };
 // used when need to get the voxel index from world space(might be a float, which then converted to the int)
@@ -317,6 +340,7 @@ glm::vec3 generateRandomVec3(float _x_max, float _x_min, float _y_max, float _y_
 
 void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxel_field & V) {
     int particle_num = p.size();
+    refresh_debug(V);
     // for each particle, calculate the density and pressure
     #pragma omp parallel for
     for (int i = 0; i < particle_num; i++) {
@@ -399,8 +423,6 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
 
         //std::cout<<"old position: "<<old_position.x<<" "<<old_position.y<<" "<<old_position.z<<std::endl;   
         //std::cout<<"new position: "<<new_position.x<<" "<<new_position.y<<" "<<new_position.z<<std::endl;
-        
-        // ----------------------------------
 
 
         // -----------------------particle - voxel collision detection-----------------------
@@ -408,151 +430,142 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
         // ------3D-DDA collision------
         //std::cout << "begin DDA" << std::endl;
         // 1. get the initial voxel index & the final voxel index
-        std::vector<int> begin_voxel_index = world_to_voxel(p[i].prevPos,V);//check_voxel_index
-        std::vector<int> end_voxel_index = world_to_voxel(p[i].currPos,V);
-        if (begin_voxel_index == end_voxel_index) {
-            voxel& v = V.get_voxel(begin_voxel_index[0], begin_voxel_index[1], begin_voxel_index[2]);
-            if (v.exist) {// if inside a voxel, then try to push it out
-				// std::cout << "inside collision, bug here" << std::endl;
-				// v.color = glm::vec4(1.f, 0.f, 0.f, 1.0f);
-                new_velocity.x = -old_velocity.x;
-                new_velocity.y = -old_velocity.y;
-                new_velocity.z = -old_velocity.z;
-                //p[i].currPos = collision_point;
-                new_position = old_position;
-                new_position += frameTimeDiff * new_velocity;
-                p[i].currPos = new_position;
-
-                p[i].velocity = new_velocity;
-			}
-		}
-        else {
-            voxel * end_v = &V.get_voxel(end_voxel_index[0], end_voxel_index[1], end_voxel_index[2]);
-            voxel * current_v = &V.get_voxel(begin_voxel_index[0], begin_voxel_index[1], begin_voxel_index[2]);
-            // DEBUG!
-            //current_v->debug = true;
-            //end_v->debug = true;
-
-            
-            
-            std::vector<int> current_voxel_index = begin_voxel_index;
-            //std::vector<int> last_voxel_index = current_voxel_index;
-            // 2. get the ray direction
-            glm::vec3 ray_direction = glm::normalize(p[i].currPos - p[i].prevPos);
-            //std::cout << "ray_direction: " << ray_direction.x << " " << ray_direction.y << " " << ray_direction.z << std::endl;
+        std::vector<int> begin_voxel_index = world_to_voxel(old_position,V);//check_voxel_index
+        std::vector<int> end_voxel_index = world_to_voxel(new_position,V);
+    
+        
+        voxel * end_v = &V.get_voxel(end_voxel_index[0], end_voxel_index[1], end_voxel_index[2]);
+        voxel * current_v = &V.get_voxel(begin_voxel_index[0], begin_voxel_index[1], begin_voxel_index[2]);
+      
+        
+        std::vector<int> current_voxel_index = begin_voxel_index;
+        // 2. get the ray direction
+        glm::vec3 ray_direction = glm::normalize(new_position - old_position);
+        //std::cout << "ray_direction: " << ray_direction.x << " " << ray_direction.y << " " << ray_direction.z << std::endl;
         // 3. get the initial t and final t
-            float t_current = 0.f; // begin at 0, start from the beginning of the ray AKA---> the previous position
-            float t_end = glm::length(p[i].currPos - p[i].prevPos); // end at the length of the ray
-            // 4. get the delta t in each direction X/Y/Z
-            float delta_t_x = voxel_size_scale / glm::abs(ray_direction.x);
-            float delta_t_y = voxel_size_scale / glm::abs(ray_direction.y);
-            float delta_t_z = voxel_size_scale / glm::abs(ray_direction.z);
-            int sign_x = ray_direction.x > 0 ? 1 : -1;
-            int sign_y = ray_direction.y > 0 ? 1 : -1;
-            int sign_z = ray_direction.z > 0 ? 1 : -1;
-            // 5. initialize t_next_x, t_next_y, t_next_z
-            std::vector<float> voxel_6_face = voxel_to_world_6_face(current_voxel_index[0], current_voxel_index[1], current_voxel_index[2]);
-            float t_next_x;
-            float t_next_y;
-            float t_next_z;
-            if (sign_x == 1) {
-                t_next_x = glm::abs(voxel_6_face[0] - p[i].prevPos.x) / ray_direction.x;
-            }
-            else {
-                t_next_x = glm::abs(voxel_6_face[1] - p[i].prevPos.x) / ray_direction.x;
-            }
-            if (sign_y == 1) {
-                t_next_y = glm::abs(voxel_6_face[2] - p[i].prevPos.y) / ray_direction.y;
-            }
-            else {
-                t_next_y = glm::abs(voxel_6_face[3] - p[i].prevPos.y) / ray_direction.y;
-            }
-            if (sign_z == 1) {
-                t_next_z = glm::abs(voxel_6_face[4] - p[i].prevPos.z) / ray_direction.z;
-            }
-            else {
-                t_next_z = glm::abs(voxel_6_face[5] - p[i].prevPos.z) / ray_direction.z;
-            }
+        float t_current = 0.f; // begin at 0, start from the beginning of the ray AKA---> the previous position
+        float t_end = glm::length(new_position - old_position); // end at the length of the ray
+        // 4. get the delta t in each direction X/Y/Z
+        float delta_t_x = voxel_size_scale / glm::abs(ray_direction.x);
+        float delta_t_y = voxel_size_scale / glm::abs(ray_direction.y);
+        float delta_t_z = voxel_size_scale / glm::abs(ray_direction.z);
+        
 
+        int sign_x = ray_direction.x > 0 ? 1 : -1;
+        int sign_y = ray_direction.y > 0 ? 1 : -1;
+        int sign_z = ray_direction.z > 0 ? 1 : -1;
+        // 5. initialize t_next_x, t_next_y, t_next_z
+        std::vector<float> voxel_6_face = voxel_to_world_6_face(current_voxel_index[0], current_voxel_index[1], current_voxel_index[2]);
+        float t_next_x;
+        float t_next_y;
+        float t_next_z;
+        // initialize t_next_x, t_next_y, t_next_z, it is the distance from the current position to the next X/Y/Z direction voxel's face
+        if (sign_x == 1) {
+            t_next_x = glm::abs((voxel_6_face[0] - old_position.x) / ray_direction.x);
+        }
+        else {
+            t_next_x = glm::abs((voxel_6_face[1] - old_position.x) / ray_direction.x);
+        }
+        if (sign_y == 1) {
+            t_next_y = glm::abs((voxel_6_face[2] - old_position.y) / ray_direction.y);
+        }
+        else {
+            t_next_y = glm::abs((voxel_6_face[3] - old_position.y) / ray_direction.y);
+        }
+        if (sign_z == 1) {
+            t_next_z = glm::abs((voxel_6_face[4] - old_position.z) / ray_direction.z);
+        }
+        else {
+            t_next_z = glm::abs((voxel_6_face[5] - old_position.z) / ray_direction.z);
+        }
 
-            //std::vector<float> voxel_6_face = voxel_to_world_6_face(current_voxel_index[0], current_voxel_index[1], current_voxel_index[2]);
-            //std::cout<<"x_pos"<<voxel_6_face[0]<<voxel_to_world(current_voxel_index[0], current_voxel_index[1], current_voxel_index[2]).x <<std::endl;
-            //voxel_to_world_6_face
+        // exclude NAN
+        if (std::isnan(t_next_x)) {
+            t_next_x = INFINITY;
+        }
+        if (std::isnan(t_next_y)) {
+            t_next_y = INFINITY;
+        }
+        if (std::isnan(t_next_z)) {
+            t_next_z = INFINITY;
+        }
 
-            if (current_v->exist) {
-                //std::cout << "!" << std::endl;
-                new_velocity.x = -old_velocity.x;
-                new_velocity.y = -old_velocity.y;
-                new_velocity.z = -old_velocity.z;
-                //p[i].currPos = collision_point;
-                new_position = old_position;
-                new_position += frameTimeDiff * new_velocity;
-                p[i].currPos = new_position;
-                p[i].velocity = new_velocity;
-            }
+        // if it is already inside a voxel, then try push it out (I cannot fix this bug by avoiding all the stucking inside possibilities, so just push it out)
+        if (current_v->exist) {
+            new_velocity = glm::vec3(0);
+            glm::vec3 push_direction = glm::normalize(new_position - voxel_to_world(begin_voxel_index[0], begin_voxel_index[1], begin_voxel_index[2]));
+            float push_distance = voxel_size_scale * 0.005f;
+            new_position = old_position+ push_distance*push_direction;
+            p[i].currPos = new_position;
+            p[i].velocity = new_velocity;
+           
+        }
             
 
         // 6. recursively check the voxel in the ray direction, if the voxel is occupied, 
-        // then it collides, reverse the velocity and do whatever you want to do
-            while (t_current < t_end && !current_v->exist) {
-                //std::cout << "DDA" << std::endl;
-                //last_voxel_index = current_voxel_index;
-                float t_min_next = glm::min(t_next_x, glm::min(t_next_y, t_next_z));
-                t_current += t_min_next;
-                if (t_min_next == t_next_x)
-                {
-                    //std::cout << "X" << std::endl;
-                    t_next_x += delta_t_x;
-                    current_voxel_index[0] += sign_x;
-                    if (current_voxel_index[0] < 0 || current_voxel_index[0] >= V.x_size)
-                        break;
-                }
-                else if (t_min_next == t_next_y)
-                {
-                    //std::cout << "Y" << std::endl;
-                    t_next_y += delta_t_y;
-                    current_voxel_index[1] += sign_y;
-                    if (current_voxel_index[1] < 0 || current_voxel_index[1] >= V.y_size)
-                        break;
-                }
-                else
-                {
-                    //std::cout << "Z" << std::endl;
-                    t_next_z += delta_t_z;
-                    current_voxel_index[2] += sign_z;
-                    if (current_voxel_index[2] < 0 || current_voxel_index[2] >= V.z_size)
-                        break;
-                }
-                current_v = &V.get_voxel(current_voxel_index[0], current_voxel_index[1], current_voxel_index[2]);
-                //current_v->debug = true;
-                if (current_v->exist) {
-                    //std::cout<<"collide!"<<std::endl;
-                    //std::cout << current_voxel_index[0]<<"," << current_voxel_index[1] << "," << current_voxel_index[2] << std::endl;
-                    // collide visualization!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                    // current_v->color = glm::vec4(1.f, 0.f, 1.f, 1.0f);
-                    // get the collision point
-                    //glm::vec3 collision_point = p[i].prevPos + (t_current) * ray_direction;
-                    // std::cout << "collision point" << collision_point.x << " " << collision_point.y << " " << collision_point.z << std::endl;
-
-                    new_velocity.x = -old_velocity.x;
-                    new_velocity.y = -old_velocity.y;
-                    new_velocity.z = -old_velocity.z;
-                    //new_position = collision_point;
-                    new_position = old_position;
-                    p[i].currPos = new_position;
-
-                    p[i].velocity = new_velocity*0.8f;
+        // then it collides, reverse the velocity and stop the particle at(/before) the collision point
+        while ((t_current <= t_end) && !current_v->exist ) {
+            float t_min_next = glm::min(t_next_x, glm::min(t_next_y, t_next_z));
+            int x_or_y_or_z = -1; // 0 for x, 1 for y, 2 for z, indicating which direction is the next voxel
+            t_current += t_min_next;
+            if (t_current > t_end) {
+				break;
+			}
+            if (t_min_next == t_next_x)
+            {
+                x_or_y_or_z = 0;
+                t_next_x += delta_t_x;
+                current_voxel_index[0] += sign_x;
+                if (current_voxel_index[0] < 0 || current_voxel_index[0] >= V.x_size)
                     break;
-                }
             }
-            //std::cout << "after c-d position: " << p[i].currPos.x << " " << p[i].currPos.y << " " << p[i].currPos.z << std::endl;
-            
+            else if (t_min_next == t_next_y)
+            {
+                x_or_y_or_z = 1;
+                t_next_y += delta_t_y;
+                current_voxel_index[1] += sign_y;
+                if (current_voxel_index[1] < 0 || current_voxel_index[1] >= V.y_size)
+                    break;
+            }
+            else if (t_min_next == t_next_z)
+            {
+                x_or_y_or_z = 2;
+                t_next_z += delta_t_z;
+                current_voxel_index[2] += sign_z;
+                if (current_voxel_index[2] < 0 || current_voxel_index[2] >= V.z_size)
+                    break;
+            }
+            else
+            {
+                std::cout << "error in 3D-DDA ray delta" << t_min_next << t_next_x << "," <<  t_next_y << ","  << t_next_z << std::endl;
+                break;
+            }
 
-
-
-
-
-            
+            current_v = &V.get_voxel(current_voxel_index[0], current_voxel_index[1], current_voxel_index[2]);
+            if (current_v->exist) {
+                // TRICK: I let the particle stop a little bit earlier than the computed collision point to avoid the case that the particle is stucking inside the voxel
+                // caused by floating point error
+                // get the collision point
+                glm::vec3 collision_point = old_position + (t_current) * ray_direction * 0.999f;// some trick
+                new_position = collision_point;
+                //std::vector<float> collide_voxel_6_face = voxel_to_world_6_face(current_voxel_index[0], current_voxel_index[1], current_voxel_index[2]);
+                std::vector<float> collide_voxel_6_face = voxel_to_world_6_face_extend(current_voxel_index[0], current_voxel_index[1], current_voxel_index[2]);//trick version
+                // reverse the velocity  component that is in the direction of the collision face
+                if (x_or_y_or_z == 0) {
+                    new_position.x = collide_voxel_6_face[(1 + sign_x)/2];
+                    new_velocity.x = -old_velocity.x;
+                }
+                else if (x_or_y_or_z == 1) {
+					new_position.y = collide_voxel_6_face[(5 + sign_y) / 2];
+                    new_velocity.y = -old_velocity.y;
+				}
+                else if (x_or_y_or_z == 2) {
+					new_position.z = collide_voxel_6_face[(9 + sign_z) / 2];
+                    new_velocity.z = -old_velocity.z;
+				}
+                new_velocity *= 0.8f;              
+                break;
+            }
 
         }
 
@@ -591,11 +604,6 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
         p[i].velocity = new_velocity;
         p[i].currPos = new_position;
 
-        //std::cout << "final position: " << p[i].currPos.x << " " << p[i].currPos.y << " " << p[i].currPos.z << std::endl;
-
-
-
-
         // // ------simplest collision detection, just reverse the velocity if this pos has a voxel------
         // std::vector<int> voxel_index = world_to_voxel(new_position,V);
         // int x = voxel_index[0];
@@ -623,6 +631,7 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
 }
 
 void calculate_voxel_erosion(std::vector<particle>& p, float frameTimeDiff, voxel_field& V) {
+    float voxel_pressure_range = smoothing_length * 2;
     #pragma omp parallel for collapse(3)
     for (int i = 0; i < V.x_size; i++) {
         for (int j = 0; j < V.y_size; j++) {
@@ -632,10 +641,11 @@ void calculate_voxel_erosion(std::vector<particle>& p, float frameTimeDiff, voxe
                     for (int n = 0; n < particle_num; n++) {
                         glm::vec3 delta = (p[n].currPos - voxel_to_world(i, j, k));
 						float r = length(delta);
-                        if (r < smoothing_length) {
-							v->density -= particle_mass * /* poly6 kernel */ 315.f * glm::pow(smoothing_length * smoothing_length - r * r, 3.f) / (64.f * PI_FLOAT * glm::pow(smoothing_length, 9));
-						} 
-                        if (v->density < voxel_density_threshold) {
+                        if (r < voxel_pressure_range) {
+							v->density -= voxel_damage_scale*length(particle_mass * (p[n].pamameters[1]) / (p[n].pamameters[0]) * -45.f / (PI_FLOAT * glm::pow(voxel_pressure_range, 6.f)) * glm::pow(voxel_pressure_range - r, 2.f) * glm::normalize(delta));
+						    v->color = glm::vec4(0.5f, v->density /voxel_density, v->density / voxel_density, 1.0f);
+                        } 
+                        if (v->density < voxel_destroy_density_threshold) {
                             v->exist = false;
                         }
 

@@ -39,11 +39,14 @@ const float particle_radius = 0.025f;
 const float particle_resting_density = 1000.0f;
 const float particle_mass = 65.0f;
 const float smoothing_length = 20.0f * particle_radius;
-const float particle_viscosity = 250.0f;
+const float particle_viscosity = 175.0f;
 const glm::vec3 gravity_force = glm::vec3(0.0f, -10.0f, 0.0f);
 const float particle_stiffness = 200.0f; // aka K
 const float wall_damping = 0.8f;
-const float voxel_density_threshold = 0.01f;
+
+const float voxel_destroy_density_threshold = 0.01f;
+const float voxel_damage_scale = 0.01f;
+const float voxel_density = 300000.0f;
 
 
 
@@ -149,7 +152,7 @@ extern glm::vec4 boundary_color;
 extern glm::vec4 particle_color;
 
 // set up voxel field
-void set_up_voxel_field(voxel_field& V);
+void set_up_voxel_field(voxel_field& V, float voxel_density);
 // set up particle system
 void set_up_SPH_particles(std::vector<particle>& P);
 

@@ -28,7 +28,7 @@
 
 
 #include <omp.h>
-int numThreads = 16; // 指定线程数量
+int numThreads = 12; // 指定线程数量
 
 // some color setting in data_structures
 extern glm::vec4 red = glm::vec4(1.f, 0.f, 0.f, 1.0f);
@@ -61,7 +61,8 @@ extern const unsigned int SCR_WIDTH = 1080;
 extern const unsigned int SCR_HEIGHT = 720;
 
 // camera 
-extern Camera camera(glm::vec3(1.39092f, 1.55529f, 2.59475f));
+//extern Camera camera(glm::vec3(1.39092f, 1.55529f, 2.59475f));
+extern Camera camera(glm::vec3(5.934f, 6.572f, -1.650f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -94,7 +95,7 @@ extern const float voxel_z_origin = voxel_size_scale/2;
 
 voxel_field V = voxel_field(voxel_x_num, voxel_y_num, voxel_z_num);
 
-extern const int particle_num = 2000;
+extern const int particle_num = 1500;
 
 // particle set
 std::vector<particle> particles(particle_num);
@@ -152,7 +153,7 @@ int main()
 
     // tell GLFW to capture our mouse
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
     // glad: load all OpenGL function pointers
     // ---------------------------------------
@@ -172,7 +173,8 @@ int main()
     glLineWidth(4.0);
     // modify camera infos before render loop starts
     camera.MovementSpeed = 1.0f;
-    camera.Front = glm::vec3(-0.373257, -0.393942, -0.826684);
+    //camera.Front = glm::vec3(-0.373257, -0.393942, -0.826684);
+    camera.Front = glm::vec3(0.031, -0.773, 0.634);
 
 
 
@@ -190,7 +192,7 @@ int main()
     
 
     // set up voxel field
-    set_up_voxel_field(V);
+    set_up_voxel_field(V, voxel_density);
 
     // set up particles
     set_up_SPH_particles(particles);
@@ -251,7 +253,9 @@ int main()
     printf("boundary setting: x_max %.1f x_min %.1f y_max %.1f y_min %.1f z_max %.1f z_min %.1f \n", x_max,x_min,y_max,y_min,z_max,z_min);
     std::cout << "voxel_size: " << voxel_size_scale << std::endl; int voxel_x_num = 12, voxel_y_num = 12, voxel_z_num = 8;
     printf("voxel setting: voxel_x_num %i voxel_y_num %i voxel_z_num %i \n", voxel_x_num, voxel_y_num, voxel_z_num);
-    std::cout << "voxel_density_threshold : " << voxel_density_threshold << std::endl;
+    std::cout << "voxel_destroy_density_threshold : " << voxel_destroy_density_threshold << std::endl;
+    std::cout << "voxel_damage_scale : " << voxel_damage_scale << std::endl;
+    std::cout << "voxel_density : " << voxel_density << std::endl;
 
 
     // render loop
@@ -260,6 +264,7 @@ int main()
         if (regenerate) {
 			regenerate = false;
 			set_up_SPH_particles(particles);
+            set_up_voxel_field(V, voxel_density);
 		}
 
 

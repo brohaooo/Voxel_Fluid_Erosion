@@ -474,7 +474,7 @@ void render_voxel_field(voxel_field& V, Shader& ourShader, unsigned int cube_VBO
         for (int j = 0; j < voxel_y_num; j++) {
             for (int k = 0; k < voxel_z_num; k++) {
                 voxel v = V.get_voxel(i, j, k);
-                if (v.exist) {
+                if (v.exist&&!v.debug) {
                     glm::mat4 model = glm::scale(glm::translate(glm::mat4(1.0f), voxel_to_world(i, j, k)), glm::vec3(voxel_size_scale));
                     render_cube(ourShader, cube_VBO, cube_VAO, model,v.color);
                 }
