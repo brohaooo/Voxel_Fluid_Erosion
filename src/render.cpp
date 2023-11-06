@@ -367,7 +367,7 @@ void render_sphere_instanced(Shader& ourShader, unsigned int& sphere_VAO, GLsize
     glm::mat4 view = camera.GetViewMatrix();
     ourShader.setMat4("view", view);
     glm::mat4 model = glm::mat4(1.0f);
-    model = glm::scale(model, glm::vec3(0.10));
+    model = glm::scale(model, glm::vec3(0.17));
     ourShader.setMat4("model", model);
 
     glBindVertexArray(sphere_VAO);
@@ -381,7 +381,7 @@ void render_sphere_instanced(Shader& ourShader, unsigned int& sphere_VAO, GLsize
     glDrawElementsInstanced(GL_TRIANGLES, 768, GL_UNSIGNED_INT, 0, intance_num);
 
     glCullFace(GL_FRONT);
-    model = glm::scale(model, glm::vec3(1.1));
+    model = glm::scale(model, glm::vec3(1.05));
     ourShader.setMat4("model", model);
     ourShader.setVec4("color", black);
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINES);

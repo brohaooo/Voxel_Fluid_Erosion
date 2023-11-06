@@ -45,7 +45,7 @@ const float particle_stiffness = 200.0f; // aka K
 const float wall_damping = 0.8f;
 
 const float voxel_destroy_density_threshold = 0.01f;
-const float voxel_damage_scale = 0.01f;
+const float voxel_damage_scale = 1.0f;
 const float voxel_density = 300000.0f;
 
 
@@ -56,6 +56,9 @@ extern const float voxel_y_origin;
 extern const float voxel_z_origin;
 // this will adjust voxel size, the voxel size will be voxel_size_scale * 1
 extern const float voxel_size_scale;
+
+// same as voxel_size_scale, but this will be used in speed up the particle calculation
+extern const float neighbour_grid_size;
 
 
 // definition of the voxel
@@ -79,6 +82,20 @@ public:
     
     void clear_all();
     void print_field();
+};
+
+
+
+// Neighborhood Search speed up part:// cell with size = smoothing_length
+class neighbourhood_grid {
+public:
+    std::vector<std::vector<std::vector<std::vector<int>>>> grid;
+    int x_size, y_size, z_size;
+    neighbourhood_grid(int x, int y, int z);
+    void add_particle(int x, int y, int z, int particle_index);
+    void clear_grid();
+    std::vector<int> world_to_grid(glm::vec3 world_pos);
+    std::vector<int> get_neighbourhood(int x, int y, int z, int neighbood_range = 1);
 };
 
 
@@ -126,9 +143,9 @@ struct particle {
     glm::vec3  deltaCs;
 };
 
-void calculate_SPH_movement(std::vector<particle>& p, float frameTimeDiff, voxel_field& V);
+void calculate_SPH_movement(std::vector<particle>& p, float frameTimeDiff, voxel_field& V, neighbourhood_grid & G);
 
-void calculate_voxel_erosion(std::vector<particle>& p, float frameTimeDiff, voxel_field& V);
+void calculate_voxel_erosion(std::vector<particle>& p, float frameTimeDiff, voxel_field& V, neighbourhood_grid& G);
 
 
 

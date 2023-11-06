@@ -28,7 +28,7 @@
 
 
 #include <omp.h>
-int numThreads = 12; // 指定线程数量
+int numThreads = 4; // 指定线程数量
 
 // some color setting in data_structures
 extern glm::vec4 red = glm::vec4(1.f, 0.f, 0.f, 1.0f);
@@ -38,7 +38,7 @@ extern glm::vec4 black = glm::vec4(0.f, 0.f, 0.f, 1.0f);
 extern glm::vec4 cube_color = glm::vec4(0.4f, 0.4f, 1.f, 1.0f);
 extern glm::vec4 cube_edge_color = glm::vec4(0.8f, 0.8f, 1.f, 1.0f);
 extern glm::vec4 boundary_color = glm::vec4(0.2f, 0.2f, 0.f, 1.0f);
-extern glm::vec4 particle_color = glm::vec4(0.8f, 0.9f, 0.f, 1.0f);
+extern glm::vec4 particle_color = glm::vec4(0.2f, 0.4f, 0.8f, 0.3f);
 
 
 // some debug shit
@@ -88,14 +88,22 @@ extern int voxel_x_num = (x_max- x_min)/voxel_size_scale, voxel_y_num = (y_max -
 
 // this will adjust voxel size, the voxel size will be voxel_size_scale * 1
 extern const float voxel_size_scale = 0.5;
+
+// same as voxel_size_scale, but this will be used in speed up the particle calculation
+extern const float neighbour_grid_size = voxel_size_scale;
+
 // this will inicate the beginning of the voxel field(x=y=z=0) in world space
 extern const float voxel_x_origin = voxel_size_scale/2;
 extern const float voxel_y_origin = voxel_size_scale/2;
 extern const float voxel_z_origin = voxel_size_scale/2;
 
 voxel_field V = voxel_field(voxel_x_num, voxel_y_num, voxel_z_num);
+int neighbour_grid_x_num = voxel_x_num;
+int neighbour_grid_y_num = voxel_y_num;
+int neighbour_grid_z_num = voxel_z_num;
+neighbourhood_grid G = neighbourhood_grid(neighbour_grid_x_num, neighbour_grid_y_num, neighbour_grid_z_num);
 
-extern const int particle_num = 1500;
+extern const int particle_num = 1400;
 
 // particle set
 std::vector<particle> particles(particle_num);
@@ -134,7 +142,7 @@ int main()
 
     // glfw window creation
     // --------------------
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "SPH_Voxel_Erosion", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "VOXEL_FLUID_EROSION", NULL, NULL);
     if (window == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -197,7 +205,7 @@ int main()
     // set up particles
     set_up_SPH_particles(particles);
 
-
+    
 
     // set up coordinate axes to render
     unsigned int coordi_VBO, coordi_VAO;
@@ -265,6 +273,7 @@ int main()
 			regenerate = false;
 			set_up_SPH_particles(particles);
             set_up_voxel_field(V, voxel_density);
+            G.clear_grid();
 		}
 
 
@@ -307,20 +316,20 @@ int main()
         // do the physics calculation here, this will be the bottleneck of the program
         if (!time_stop) {
             if (!is_realtime) {
-                calculate_SPH_movement(particles, 0.0167, V);
-                calculate_voxel_erosion(particles, 0.0167, V);
+                calculate_SPH_movement(particles, 0.0167, V, G);
+                calculate_voxel_erosion(particles, 0.0167, V, G);
                 
             }
             else {
-                calculate_SPH_movement(particles, deltaTime, V);
-                calculate_voxel_erosion(particles, deltaTime, V);
+                calculate_SPH_movement(particles, deltaTime, V, G);
+                calculate_voxel_erosion(particles, deltaTime, V, G);
             }
             
         }
         else {
             if (next_frame_request) {
-				calculate_SPH_movement(particles, 0.0167, V);
-                calculate_voxel_erosion(particles, 0.0167, V);
+				calculate_SPH_movement(particles, 0.0167, V, G);
+                calculate_voxel_erosion(particles, 0.0167, V, G);
 				next_frame_request = false;
 			}
         }

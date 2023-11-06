@@ -163,6 +163,12 @@ void check_voxel_index(int& x, int& y, int& z, voxel_field& V) {
     }
 }
 
+
+
+
+
+
+
 // used when need to render the voxel in world space
 glm::vec3 voxel_to_world(int x, int y, int z) {
     return glm::vec3(x * voxel_size_scale + voxel_x_origin, y * voxel_size_scale + voxel_y_origin, z * voxel_size_scale + voxel_z_origin);
@@ -204,6 +210,100 @@ std::vector<int> world_to_voxel(glm::vec3 world, voxel_field & V) {
 };
 
 
+
+// definition of the neighbourhood grid, contains a 3D array of vectors of particle indices
+// Neighborhood Search speed up part:// cell with size = smoothing_length
+neighbourhood_grid::neighbourhood_grid(int x, int y, int z) {
+    x_size = x;
+    y_size = y;
+    z_size = z;
+    grid.resize(x);
+    for (int i = 0; i < x_size; i++) {
+        grid[i].resize(y_size);
+        for (int j = 0; j < y_size; j++) {
+            grid[i][j].resize(z_size);
+            for (int k = 0; k < z_size; k++) {
+                grid[i][j][k].resize(0);
+            }
+        }
+    }
+};
+void neighbourhood_grid::add_particle(int x, int y, int z, int particle_index) {
+    grid[x][y][z].push_back(particle_index);
+};
+void neighbourhood_grid::clear_grid() {
+    for (int i = 0; i < x_size; i++) {
+        grid[i].resize(y_size);
+        for (int j = 0; j < y_size; j++) {
+            grid[i][j].resize(z_size);
+            for (int k = 0; k < z_size; k++) {
+                grid[i][j][k].clear();
+            }
+        }
+    }
+};
+// here we use the same world_to_object function as the voxel field
+std::vector<int> neighbourhood_grid::world_to_grid(glm::vec3 world_pos) {
+    glm::vec3 float_val = glm::vec3((world_pos.x) / neighbour_grid_size, (world_pos.y) / neighbour_grid_size, (world_pos.z) / neighbour_grid_size);
+    int x = static_cast<int>(std::floor(float_val.x));
+    int y = static_cast<int>(std::floor(float_val.y));
+    int z = static_cast<int>(std::floor(float_val.z));
+    if (x < 0) {
+        x = 0;
+    }
+    if (x >= x_size) {
+        x = x_size - 1;
+    }
+    if (y < 0) {
+        y = 0;
+    }
+    if (y >= y_size) {
+        y = y_size - 1;
+    }
+    if (z < 0) {
+        z = 0;
+    }
+    if (z >= z_size) {
+        z = z_size - 1;
+    }
+    return { x,y,z };
+};
+std::vector<int> neighbourhood_grid::get_neighbourhood(int x, int y, int z, int neighbood_range) {
+    std::vector<int> res;
+    for (int i = x - neighbood_range; i <= x + neighbood_range; i++) {
+		if (i < 0 || i >= x_size) {
+			continue;
+		}
+		for (int j = y - neighbood_range; j <= y + neighbood_range; j++) {
+			if (j < 0 || j >= y_size) {
+				continue;
+			}
+			for (int k = z - neighbood_range; k <= z + neighbood_range; k++) {
+				if (k < 0 || k >= z_size) {
+					continue;
+				}
+				for (int l = 0; l < grid[i][j][k].size(); l++) {
+					res.push_back(grid[i][j][k][l]);
+				}
+			}
+		}
+	}
+    return res;
+
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
 // definition of the bounding barrier, contains the max and min coordinates of the box
 // particles cannot go beyond the box
 bounding_box::bounding_box(GLfloat _x_max, GLfloat _x_min, GLfloat _y_max, GLfloat _y_min, GLfloat _z_max, GLfloat _z_min) {
@@ -222,12 +322,12 @@ bounding_box::bounding_box(GLfloat _x_max, GLfloat _x_min, GLfloat _y_max, GLflo
     GLfloat render_y_min = y_min;
     GLfloat render_z_max = z_max;
     GLfloat render_z_min = z_min;
-    render_x_max += 0.11f;
-    render_x_min -= 0.11f;
-    render_y_max += 0.11f;
-    render_y_min -= 0.11f;
-    render_z_max += 0.11f;
-    render_z_min -= 0.11f;
+    render_x_max += 0.15f;
+    render_x_min -= 0.15f;
+    render_y_max += 0.15f;
+    render_y_min -= 0.15f;
+    render_z_max += 0.15f;
+    render_z_min -= 0.15f;
 		
 	face_mesh = {
         // Front face
@@ -338,15 +438,30 @@ glm::vec3 generateRandomVec3(float _x_max, float _x_min, float _y_max, float _y_
 
 
 
-void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxel_field & V) {
+void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxel_field & V, neighbourhood_grid& G) {
     int particle_num = p.size();
     refresh_debug(V);
+    // first, re-genereate the neighbourhood grid
+    G.clear_grid();
+    // looks like we cannot use parallel here, shit
+    for (int i = 0; i < particle_num; i++) {
+		std::vector<int> grid_index = G.world_to_grid(p[i].currPos);
+		G.add_particle(grid_index[0], grid_index[1], grid_index[2], i);
+	}
+
+
     // for each particle, calculate the density and pressure
     #pragma omp parallel for
     for (int i = 0; i < particle_num; i++) {
+        std::vector<int> current_grid = G.world_to_grid(p[i].currPos);
+        std::vector<int> neighbour_particles = G.get_neighbourhood(current_grid[0], current_grid[1], current_grid[2]);
+        
+
         int cnt = 0;
         float density_sum = 0.f;
-        for (int j = 0; j < particle_num; j++) {
+        
+        //for (int j = 0; j < particle_num; j++) {
+        for (int j : neighbour_particles) {
             glm::vec3 delta = (p[i].currPos - p[j].currPos);
             float r = length(delta);
             if (r < smoothing_length)
@@ -362,10 +477,15 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
     // for each particle, calculate the force and acceleration
     #pragma omp parallel for
     for (int i = 0; i < particle_num; i++) {
+        std::vector<int> current_grid = G.world_to_grid(p[i].currPos);
+        std::vector<int> neighbour_particles = G.get_neighbourhood(current_grid[0], current_grid[1], current_grid[2]);
+
+
         glm::vec3 pressure_force = glm::vec3(0.0f, 0.0f, 0.0f);
         glm::vec3 viscosity_force = glm::vec3(0.0f, 0.0f, 0.0f);
         glm::vec3 dCs = glm::vec3(0.0f, 0.0f, 0.0f);
-        for (int j = 0; j < particle_num; j++) {
+        //for (int j = 0; j < particle_num; j++) {
+        for (int j : neighbour_particles) {
             if (i == j) {
 				continue;
 			}
@@ -493,6 +613,7 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
         // if it is already inside a voxel, then try push it out (I cannot fix this bug by avoiding all the stucking inside possibilities, so just push it out)
         if (current_v->exist) {
             new_velocity = glm::vec3(0);
+            //new_velocity *= -1.0f;
             glm::vec3 push_direction = glm::normalize(new_position - voxel_to_world(begin_voxel_index[0], begin_voxel_index[1], begin_voxel_index[2]));
             float push_distance = voxel_size_scale * 0.005f;
             new_position = old_position+ push_distance*push_direction;
@@ -630,19 +751,26 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
     }
 }
 
-void calculate_voxel_erosion(std::vector<particle>& p, float frameTimeDiff, voxel_field& V) {
+void calculate_voxel_erosion(std::vector<particle>& p, float frameTimeDiff, voxel_field& V, neighbourhood_grid& G) {
     float voxel_pressure_range = smoothing_length * 2;
     #pragma omp parallel for collapse(3)
     for (int i = 0; i < V.x_size; i++) {
+        int G_x = i;
         for (int j = 0; j < V.y_size; j++) {
+            int G_y = j;
             for (int k = 0; k < V.z_size; k++) {
+                int G_z = k;
                 voxel * v = &V.get_voxel(i,j,k);
                 if (v->exist) {
-                    for (int n = 0; n < particle_num; n++) {
+                    // voxel's i j k is the same as neighbour_particles's i j k
+                    std::vector<int> neighbour_particles = G.get_neighbourhood(G_x, G_y, G_z,2);
+
+                    // for (int n = 0; n < particle_num; n++) {
+                    for (int & n : neighbour_particles) {
                         glm::vec3 delta = (p[n].currPos - voxel_to_world(i, j, k));
 						float r = length(delta);
-                        if (r < voxel_pressure_range) {
-							v->density -= voxel_damage_scale*length(particle_mass * (p[n].pamameters[1]) / (p[n].pamameters[0]) * -45.f / (PI_FLOAT * glm::pow(voxel_pressure_range, 6.f)) * glm::pow(voxel_pressure_range - r, 2.f) * glm::normalize(delta));
+                        if (r < voxel_pressure_range) {                    
+							v->density -= frameTimeDiff * voxel_damage_scale*length(particle_mass * (p[n].pamameters[1]) / (p[n].pamameters[0]) * -45.f / (PI_FLOAT * glm::pow(voxel_pressure_range, 6.f)) * glm::pow(voxel_pressure_range - r, 2.f) * glm::normalize(delta));
 						    v->color = glm::vec4(0.5f, v->density /voxel_density, v->density / voxel_density, 1.0f);
                         } 
                         if (v->density < voxel_destroy_density_threshold) {
