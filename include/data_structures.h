@@ -37,16 +37,22 @@ extern Shader* global_ourShader;
 // extern const int particle_num = 10;
 const float particle_radius = 0.025f;
 const float particle_resting_density = 1000.0f;
-const float particle_mass = 65.0f;
+const float particle_mass = 75.0f; // initial mass
+const float particle_maximum_mass = 85.0f; // maximum mass, mass increase when the particle is taking mass from the voxel
 const float smoothing_length = 20.0f * particle_radius;
-const float particle_viscosity = 175.0f;
+const float particle_viscosity = 190.0f; //175
 const glm::vec3 gravity_force = glm::vec3(0.0f, -10.0f, 0.0f);
 const float particle_stiffness = 200.0f; // aka K
 const float wall_damping = 0.8f;
 
 const float voxel_destroy_density_threshold = 0.01f;
+const float voxel_not_destroyable_min_density = 380000.0f;
 const float voxel_damage_scale = 1.0f;
 const float voxel_density = 300000.0f;
+const float voxel_maximum_density = 400000.0f; // if bigger than this, the voxel will separate part of it into its upper voxel neighbour
+
+const float particle_mass_transfer_ratio = 0.0005f; // the ratio of voxel mass vs particle mass ( delta V_mass / delta P_mass)
+const float diffusion_rate = 0.00006f; // the rate that controls the diffusion of the mass from one particle to another particle
 
 
 
@@ -65,8 +71,10 @@ extern const float neighbour_grid_size;
 struct voxel {
     bool exist; // whether the voxel exists, if not, the density and color are meaningless
     bool debug = false;
+    bool not_destroyable = false;
     float density;
     glm::vec4 color;
+    void update_color();
 };
 // definition of the field, contains a 3D array of voxels
 class voxel_field {
@@ -96,6 +104,8 @@ public:
     void clear_grid();
     std::vector<int> world_to_grid(glm::vec3 world_pos);
     std::vector<int> get_neighbourhood(int x, int y, int z, int neighbood_range = 1);
+    std::vector<int> get_upper_neighbourhood(int x, int y, int z, int neighbood_range = 1);
+    std::vector<int> get_lower_neighbourhood(int x, int y, int z, int neighbood_range = 1);
 };
 
 
@@ -141,13 +151,24 @@ struct particle {
     glm::vec3  velocity;
     glm::vec3  pamameters;// density, pressure, neighbor number
     glm::vec3  deltaCs;
+    float      mass;
+    glm::vec3  estimated_velocity = glm::vec3(0,0,0); // this is a more accurate velocity estimation, to check whether the particle is stopped 
+    
+    
+    // use this to check whether the particle has been stucked for a while, if stuck, then it will be recycled
+    // however, I didn't use this in this project till now, because I avoided stucking via other methods
+    // but this might be useful in the future, I might activate stuck_count if some other stucking cases happen
+    int		   stuck_count = 0;
+    
 };
 
-void calculate_SPH_movement(std::vector<particle>& p, float frameTimeDiff, voxel_field& V, neighbourhood_grid & G);
+void calculate_SPH_movement(std::vector<particle>& p, float frameTimeDiff, voxel_field& V, neighbourhood_grid & G, std::vector<int>& recycle_list);
 
-void calculate_voxel_erosion(std::vector<particle>& p, float frameTimeDiff, voxel_field& V, neighbourhood_grid& G);
+void calculate_voxel_erosion(std::vector<particle>& p, float frameTimeDiff, voxel_field& V, neighbourhood_grid& G, std::vector<int>& recycle_list);
 
 
+
+void recycle_particle(std::vector<particle>& p, std::vector<int> & recycle_list);
 
 
 // ----------------------------------------------------------------------render part------------------------------------------------------

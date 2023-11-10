@@ -20,18 +20,52 @@ extern const float voxel_size_scale;
 
 // set up voxel field
 void set_up_voxel_field(voxel_field& V, float voxel_density) {
+    // common destroyable voxel
     voxel v1;
-    v1.color = glm::vec4(0.5f, 1.0f, 1.0f, 1.0f);
+    float density_ratio = voxel_density / voxel_maximum_density;
+    v1.color = glm::vec4(0.5f, density_ratio, density_ratio, 1.0f);
     v1.density = voxel_density;
     v1.exist = true;
-    for (int i = 2; i < 11; i++) {
-        for (int j = 0; j < 5; j++) {
-            for (int k = 0; k < 6; k++) {
+    v1.not_destroyable = false;
+    for (int i = 0; i < 13; i++) {
+        for (int j = 0; j < 12-i; j++) {
+            for (int k = 0; k < 8; k++) {
                 V.set_voxel(i, j, k, v1);
             }
         }
     }
 
+    // a much weaker voxel, used to represent the voxel that is about to be destroyed
+    voxel v2;
+    density_ratio = (voxel_density/2.0f) / voxel_maximum_density;
+    v2.color = glm::vec4(0.5f, density_ratio, density_ratio, 1.0f);
+    v2.density = (voxel_density / 2.0f);
+    v2.exist = true;
+    v2.not_destroyable = false;
+    for (int i = 15; i < 17; i++) {
+        for (int j = 0; j < 12; j++) {
+            for (int k = 0; k < 8; k++) {
+                V.set_voxel(i, j, k, v2);
+            }
+        }
+    }
+
+
+    // not destroyable voxel, we can put it at the bottom of the voxel field
+    // to represent the ground
+    voxel v3;
+    density_ratio = voxel_not_destroyable_min_density / voxel_maximum_density;
+    v3.color = glm::vec4(0.5f, density_ratio, density_ratio, 1.0f);
+    v3.density = voxel_not_destroyable_min_density;
+    v3.exist = true;
+    v3.not_destroyable = true;
+    for (int i = 0; i < 30; i++) {
+        for (int j = 0; j < 1; j++) {
+            for (int k = 0; k < 8; k++) {
+                V.set_voxel(i, j, k, v3);
+            }
+        }
+    }
 }
 
 void refresh_debug(voxel_field& V) {
@@ -54,21 +88,28 @@ void set_up_SPH_particles(std::vector<particle>& P) {
     p1.acceleration = glm::vec3(0.0f, 0.0f, 0.0f);
     p1.pamameters = glm::vec3(0.0f, 0.0f, 0.0f);
     p1.deltaCs = glm::vec3(0.0f, 0.0f, 0.0f);
+    p1.mass = particle_mass;
+    p1.stuck_count = 0;
 
     for (int i = 0; i < P.size(); i++) {
         p1.currPos = generateRandomVec3();
-        p1.currPos.y /= 2;
-        p1.currPos.y += (y_max - y_min) / 2;
+        p1.currPos.y /= 6;
+        p1.currPos.y += (y_max - y_min)*5 / 6;
+        p1.currPos.x /= 6;
+        //p1.currPos.x += (x_max - x_min) * 3 / 4;
         P[i] = p1;
     }
 
-    P[0].currPos = glm::vec3(2.4f, 3.0f, 2.5f);
+    //P[0].currPos = glm::vec3(2.4f, 3.0f, 2.5f);
     //P[1].currPos = glm::vec3(0.115f, 2.111f, 0.125f);
 
 }
 
 
-
+void voxel::update_color() {
+	float density_ratio = density / voxel_maximum_density;
+	color = glm::vec4(0.5f, density_ratio, density_ratio, 1.0f);
+}
 
 
 // definition of the field, contains a 3D array of voxels
@@ -103,6 +144,26 @@ voxel & voxel_field::get_voxel(int x, int y, int z) {
     if (x < 0 || x >= x_size || y < 0 || y >= y_size || z < 0 || z >= z_size) {
 		return NULL_VOXEL;
 	}
+    // if (x < 0) {
+	// 	x = 0;
+	// }
+    // if (x >= x_size) {
+	// 	x = x_size - 1;
+	// }
+    // if (y < 0) {
+	// 	y = 0;
+	// }
+    // if (y >= y_size) {
+	// 	y = y_size - 1;
+	// }
+    // if (z < 0) {
+	// 	z = 0;
+	// }
+    // if (z >= z_size) {
+	// 	z = z_size - 1;
+	// }
+
+
 	return field[x][y][z];
 }
 void voxel_field::clear_voxel(int x, int y, int z) {
@@ -143,21 +204,21 @@ void voxel_field::print_field() {
 
 // avoid some cases that the voxel index is out of bound
 void check_voxel_index(int& x, int& y, int& z, voxel_field& V) {
-    /*if (x < 0) {
-    x = 0;
-    }*/
+    if (x < 0) {
+        x = 0;
+    }
     if (x >= V.x_size) {
         x = V.x_size - 1;
     }
-    /*if (y < 0) {
+    if (y < 0) {
         y = 0;
-    }*/
+    }
     if (y >= V.y_size) {
         y = V.y_size - 1;
     }
-    /*if (z < 0) {
+    if (z < 0) {
         z = 0;
-    }*/
+    }
     if (z >= V.z_size) {
         z = V.z_size - 1;
     }
@@ -289,9 +350,53 @@ std::vector<int> neighbourhood_grid::get_neighbourhood(int x, int y, int z, int 
 		}
 	}
     return res;
-
 };
-
+// this one is used to get the upper neighbourhood(with particle_y >= input_y), which is used in the deposition detection
+std::vector<int> neighbourhood_grid::get_upper_neighbourhood(int x, int y, int z, int neighbood_range) {
+    std::vector<int> res;
+    for (int i = x - neighbood_range; i <= x + neighbood_range; i++) {
+        if (i < 0 || i >= x_size) {
+            continue;
+        }
+        for (int j = y; j <= y + neighbood_range; j++) {
+            if (j < 0 || j >= y_size) {
+                continue;
+            }
+            for (int k = z - neighbood_range; k <= z + neighbood_range; k++) {
+                if (k < 0 || k >= z_size) {
+                    continue;
+                }
+                for (int l = 0; l < grid[i][j][k].size(); l++) {
+                    res.push_back(grid[i][j][k][l]);
+                }
+            }
+        }
+    }
+    return res;
+};
+// this one is used to get the lower neighbourhood(with particle_y <= input_y), which is used in the diffusion detection
+std::vector<int> neighbourhood_grid::get_lower_neighbourhood(int x, int y, int z, int neighbood_range) {
+    std::vector<int> res;
+    for (int i = x - neighbood_range; i <= x + neighbood_range; i++) {
+        if (i < 0 || i >= x_size) {
+            continue;
+        }
+        for (int j = y; j >= y - neighbood_range; j--) {
+            if (j < 0 || j >= y_size) {
+                continue;
+            }
+            for (int k = z - neighbood_range; k <= z + neighbood_range; k++) {
+                if (k < 0 || k >= z_size) {
+                    continue;
+                }
+                for (int l = 0; l < grid[i][j][k].size(); l++) {
+                    res.push_back(grid[i][j][k][l]);
+                }
+            }
+        }
+    }
+    return res;
+};
 
 
 
@@ -438,13 +543,14 @@ glm::vec3 generateRandomVec3(float _x_max, float _x_min, float _y_max, float _y_
 
 
 
-void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxel_field & V, neighbourhood_grid& G) {
+void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxel_field & V, neighbourhood_grid& G, std::vector<int>& recycle_list) {
     int particle_num = p.size();
-    refresh_debug(V);
+    //refresh_debug(V);
     // first, re-genereate the neighbourhood grid
     G.clear_grid();
-    // looks like we cannot use parallel here, shit
+    // looks like we cannot use parallel here, shit (even use thread with mutex lock or reduction, it is slower than default)
     for (int i = 0; i < particle_num; i++) {
+        
 		std::vector<int> grid_index = G.world_to_grid(p[i].currPos);
 		G.add_particle(grid_index[0], grid_index[1], grid_index[2], i);
 	}
@@ -467,7 +573,8 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
             if (r < smoothing_length)
             {
                 cnt++;
-                density_sum += particle_mass * /* poly6 kernel */ 315.f * glm::pow(smoothing_length * smoothing_length - r * r, 3.f) / (64.f * PI_FLOAT * glm::pow(smoothing_length, 9));
+                density_sum += p[j].mass * /* poly6 kernel */ 315.f * glm::pow(smoothing_length * smoothing_length - r * r, 3.f) / (64.f * PI_FLOAT * glm::pow(smoothing_length, 9));
+                //density_sum += particle_mass * /* poly6 kernel */ 315.f * glm::pow(smoothing_length * smoothing_length - r * r, 3.f) / (64.f * PI_FLOAT * glm::pow(smoothing_length, 9));
             }
         }
         p[i].pamameters[0] = density_sum;
@@ -497,15 +604,18 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
                     delta = generateRandomVec3(0.0001f,-0.0001f, 0.0001f, -0.0001f, 0.0001f, -0.0001f);
 				}
 				// calculate the pressure force
-                pressure_force -= particle_mass * (p[i].pamameters[1] + p[j].pamameters[1]) / (2.f * p[j].pamameters[0]) *
+                // pressure_force -= particle_mass * (p[i].pamameters[1] + p[j].pamameters[1]) / (2.f * p[j].pamameters[0]) *
+                pressure_force -= p[i].mass * (p[i].pamameters[1] + p[j].pamameters[1]) / (2.f * p[j].pamameters[0]) *
                     // gradient of spiky kernel
                     -45.f / (PI_FLOAT * glm::pow(smoothing_length, 6.f)) * glm::pow(smoothing_length - r, 2.f) * glm::normalize(delta);
 				// calculate the viscosity force
-                viscosity_force += particle_mass * (p[j].velocity - p[i].velocity) / p[j].pamameters[0] *
+                // viscosity_force += particle_mass * (p[j].velocity - p[i].velocity) / p[j].pamameters[0] *
+                viscosity_force += p[j].mass * (p[j].velocity - p[i].velocity) / p[j].pamameters[0] *
 					// Laplacian of viscosity kernel
 					45.f / (PI_FLOAT * glm::pow(smoothing_length, 6.f)) * (smoothing_length - r);
                 
-                dCs -= particle_mass * glm::pow(smoothing_length * smoothing_length - r * r, 2.f) / p[j].pamameters[0] *
+                // dCs -= particle_mass * glm::pow(smoothing_length * smoothing_length - r * r, 2.f) / p[j].pamameters[0] *
+                dCs -= p[j].mass * glm::pow(smoothing_length * smoothing_length - r * r, 2.f) / p[j].pamameters[0] *
                     // Poly6 kernel
                 	945.f / (32.f * PI_FLOAT * glm::pow(smoothing_length, 9.f)) * delta;
 			}
@@ -708,6 +818,7 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
         }
         else if (new_position.x > x_max)
         {
+            recycle_list.push_back(i);
             new_position.x = x_max;
             new_velocity.x *= -1 * wall_damping;
         }
@@ -724,6 +835,9 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
 
         p[i].velocity = new_velocity;
         p[i].currPos = new_position;
+
+        // esitmation of the velocity
+        p[i].estimated_velocity = (p[i].estimated_velocity) * 0.5f + (p[i].currPos - p[i].prevPos) / frameTimeDiff * 0.5f;
 
         // // ------simplest collision detection, just reverse the velocity if this pos has a voxel------
         // std::vector<int> voxel_index = world_to_voxel(new_position,V);
@@ -749,11 +863,72 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
         // }
 
     }
+
+    // std::cout << "velocity: " << p[0].velocity.x <<" " << p[0].velocity.y << " " << p[0].velocity.z << std::endl;
+    // std::cout << "true velocity: " << (p[0].currPos.x - p[0].prevPos.x)/frameTimeDiff << " " << (p[0].currPos.y - p[0].prevPos.y) / frameTimeDiff << " " << (p[0].currPos.z - p[0].prevPos.z) / frameTimeDiff << std::endl;
+    // std::cout << "estimated velocity: " << p[0].estimated_velocity.x << " " << p[0].estimated_velocity.y << " " << p[0].estimated_velocity.z << std::endl;
+
+
+
+    // didn't use this one, because it still looks right without updating the neighbourhood grid
+    // if it looks correct, then don't change it
+    // // update the neighbourhood grid, because the position has changed and we still need the neighbourhood grid for diffusion and erosion and deposition
+    // G.clear_grid();
+    // for (int i = 0; i < particle_num; i++) {
+    // 
+    //     std::vector<int> grid_index = G.world_to_grid(p[i].currPos);
+    //     G.add_particle(grid_index[0], grid_index[1], grid_index[2], i);
+    // }
+
+    // diffusion and stuck check
+    //#pragma omp parallel for
+    for (int i = 0; i < particle_num; i++) {
+        std::vector<int> current_grid = G.world_to_grid(p[i].currPos);
+        std::vector<int> neighbour_particles = G.get_lower_neighbourhood(current_grid[0], current_grid[1], current_grid[2]);
+        for (int & j : neighbour_particles) {
+            if (i == j) {
+                continue;
+            }
+            if (p[i].mass > particle_mass && p[j].mass < particle_maximum_mass) {
+				glm::vec3 delta = (p[i].currPos - p[j].currPos);
+				float r = length(delta);
+                if (r < smoothing_length && p[i].mass > p[j].mass && p[i].currPos.y - p[j].currPos.y >= -smoothing_length*0.01f) {
+					// particles lose mass
+					float weight = length(p[i].mass * (p[i].pamameters[1]) / (p[i].pamameters[0]) * -45.f / (PI_FLOAT * glm::pow(smoothing_length, 6.f)) * glm::pow(smoothing_length - r, 2.f) * glm::normalize(delta));
+					p[i].mass -= frameTimeDiff * diffusion_rate * weight;
+					// particles gain mass
+					p[j].mass += frameTimeDiff * diffusion_rate * weight;
+				}
+			}
+        }
+        // stuck check
+        // voxel * current_V = &V.get_voxel(current_grid[0], current_grid[1], current_grid[2]);
+        // if (current_V->exist) {
+		// 	p[i].stuck_count++;
+		// }
+        // else
+        // {
+        //     p[i].stuck_count = 0;
+        // }
+        //  if it stucks for too long, then treat it as deposited into the voxel
+        //  unleash its mass and recycle it
+        // if (p[i].stuck_count > 40)
+        // {
+        //     current_V->density += (p[i].mass - particle_mass) * voxel_damage_scale / particle_mass_transfer_ratio;
+        //     current_V->update_color();
+        //     // clear particles mass
+        //     p[i].mass = particle_mass;
+		// 	recycle_list.push_back(i);
+		// }
+
+    }
+
 }
 
-void calculate_voxel_erosion(std::vector<particle>& p, float frameTimeDiff, voxel_field& V, neighbourhood_grid& G) {
-    float voxel_pressure_range = smoothing_length * 2;
-    #pragma omp parallel for collapse(3)
+void calculate_voxel_erosion(std::vector<particle>& p, float frameTimeDiff, voxel_field& V, neighbourhood_grid& G, std::vector<int>& recycle_list) {
+    float voxel_pressure_range = smoothing_length * 2.0;
+    float voxel_deposition_range = smoothing_length * 2.0;
+    //#pragma omp parallel for collapse(3)  // unfortunately, simple parallelization does not work here when deposition is calculated
     for (int i = 0; i < V.x_size; i++) {
         int G_x = i;
         for (int j = 0; j < V.y_size; j++) {
@@ -764,29 +939,156 @@ void calculate_voxel_erosion(std::vector<particle>& p, float frameTimeDiff, voxe
                 if (v->exist) {
                     // voxel's i j k is the same as neighbour_particles's i j k
                     std::vector<int> neighbour_particles = G.get_neighbourhood(G_x, G_y, G_z,2);
+                    std::vector<int> upper_neighbour_particles = G.get_upper_neighbourhood(G_x, G_y, G_z, 2);
+                    // erosion part
+                    if (!v->not_destroyable) {
+                        for (int& n : neighbour_particles) {
+                            glm::vec3 delta = (p[n].currPos - voxel_to_world(i, j, k));
+                            float r = length(delta);
+                            if (r < voxel_pressure_range && p[n].mass < particle_maximum_mass) {
+                                // voxels lose mass because of the particles (erosion)
+                                float weight = length(p[n].mass * (p[n].pamameters[1]) / (p[n].pamameters[0]) * -45.f / (PI_FLOAT * glm::pow(voxel_pressure_range, 6.f)) * glm::pow(voxel_pressure_range - r, 2.f) * glm::normalize(delta));
+                                v->density -= frameTimeDiff * voxel_damage_scale * weight;
+                                v->update_color();
 
-                    // for (int n = 0; n < particle_num; n++) {
-                    for (int & n : neighbour_particles) {
+                                // particles gain mass from voxels (carry the mass)
+                                p[n].mass += frameTimeDiff * particle_mass_transfer_ratio * weight;
+
+
+
+                            }
+                            if (v->density < voxel_destroy_density_threshold) {
+                                v->exist = false;
+                                v->color = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+                            }
+
+                        }
+                    }
+                    else {
+                        for (int& n : neighbour_particles) {
+                            glm::vec3 delta = (p[n].currPos - voxel_to_world(i, j, k));
+                            float r = length(delta);
+                            if (r < voxel_pressure_range && p[n].mass < particle_maximum_mass && v->density>voxel_not_destroyable_min_density) {
+                                // voxels lose mass because of the particles (erosion)
+                                float weight = length(p[n].mass * (p[n].pamameters[1]) / (p[n].pamameters[0]) * -45.f / (PI_FLOAT * glm::pow(voxel_pressure_range, 6.f)) * glm::pow(voxel_pressure_range - r, 2.f) * glm::normalize(delta));
+                                v->density -= frameTimeDiff * voxel_damage_scale * weight;
+                                v->update_color();
+
+                                // particles gain mass from voxels (carry the mass)
+                                p[n].mass += frameTimeDiff * particle_mass_transfer_ratio * weight;
+
+
+
+                            }
+                            if (v->density < voxel_destroy_density_threshold) {
+                                std::cout<<"error: non-destroyable voxel destroyed"<<std::endl;
+                                v->color = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+                            }
+
+                        }
+
+                    }
+                    // deposition part
+                    bool new_voxel_created = false;
+                    for (int& n : upper_neighbour_particles) {
                         glm::vec3 delta = (p[n].currPos - voxel_to_world(i, j, k));
 						float r = length(delta);
-                        if (r < voxel_pressure_range) {                    
-							v->density -= frameTimeDiff * voxel_damage_scale*length(particle_mass * (p[n].pamameters[1]) / (p[n].pamameters[0]) * -45.f / (PI_FLOAT * glm::pow(voxel_pressure_range, 6.f)) * glm::pow(voxel_pressure_range - r, 2.f) * glm::normalize(delta));
-						    v->color = glm::vec4(0.5f, v->density /voxel_density, v->density / voxel_density, 1.0f);
-                        } 
-                        if (v->density < voxel_destroy_density_threshold) {
-                            v->exist = false;
+                        if (r < voxel_deposition_range && p[n].mass > particle_mass) {
+							// voxels get mass 
+							float weight = length(p[n].mass * (p[n].pamameters[1]) / (p[n].pamameters[0]) * -45.f / (PI_FLOAT * glm::pow(voxel_deposition_range, 6.f)) * glm::pow(voxel_deposition_range - r, 2.f) * glm::normalize(delta));
+                            
+
+                            // adjust this part to control the deposition-erosion speed, very important here
+                            weight *=  1.0f / (length(p[n].estimated_velocity)*0.75f + 0.75f);// speed penalty, if the particle is moving fast, then it will deposit less mass under the same time interval
+                            
+                            if (v->density < voxel_maximum_density) {// if the voxel is not full, then it can gain mass
+                                v->density += frameTimeDiff * voxel_damage_scale * weight;
+                                v->update_color();
+                                // particles lose mass
+							    p[n].mass -= frameTimeDiff * particle_mass_transfer_ratio * weight;
+                                
+
+                            }
+                            else {// otherwise, it will try to create a new solid voxel right on its upper face
+                                int upper_voxel_x = i;
+                                int upper_voxel_y = j + 1;
+                                int upper_voxel_z = k;
+                                if (upper_voxel_y < V.y_size) {
+									voxel * upper_v = &V.get_voxel(upper_voxel_x, upper_voxel_y, upper_voxel_z);
+                                    if (!upper_v->exist) {
+                                        // generate a new voxel
+										upper_v->exist = true;
+										upper_v->density = v->density - voxel_density;
+										upper_v->update_color();
+										// the current voxel loses a part of the mass and share it to the new voxel
+                                        v->density -= upper_v->density;
+                                        v->update_color();
+                                        // then, we need to destroy and re-create the particles that are inside the new voxel
+                                        // let's first break this for loop and find out which particles are inside the new voxel,
+                                        new_voxel_created = true;
+                                        break;
+                                    }
+                                }
+                            }
+		
+                        }                        
+                    }
+                    // generation of new voxel part
+                    if (new_voxel_created) {// re-create the particles that are inside the new voxel
+                        std::vector<int> stucked_particles = G.get_neighbourhood(i, j+1, k, 1);
+                        voxel* new_V = &V.get_voxel(i, j+1, k);
+                        if (!new_V->exist) {
+                            std::cout<<"error in voxel deposition"<<std::endl;
                         }
+                        for (int& n : stucked_particles) {
+                            glm::vec3 delta = (p[n].currPos - voxel_to_world(i, j+1, k));
+                            float r = length(delta);
+                            // still trick, just to avoid the case that the particle is still stucking inside the voxel close to current one
+                            // if the particle is still inside the voxel at this frame and we didn't remove it, 
+                            // then it will be very likely to stuck in the voxel again in the next frame
+                            // so now we remove all particles that are square_root(3) * voxel_size_scale away from the new voxel center
+                            if (r < voxel_size_scale*1.05) { 
+                                new_V->density += (p[n].mass- particle_mass) * voxel_damage_scale / particle_mass_transfer_ratio;
+                                new_V->update_color();
+                                // clear particles mass
+                                p[n].mass = particle_mass;
+                                recycle_list.push_back(n);
+                            }
+                            
+                        }
+
 
                     }
 
 
-					//v->color = glm::vec4(0.f, 0.f, 0.f, 1.0f);
+
 				}
 
             }
         }
     }
-
-
+    
 
 }
+
+void recycle_particle(std::vector<particle>& p, std::vector<int> & recycle_list) {
+    particle p1;
+    p1.prevPos = glm::vec3(0.0f, 0.0f, 0.0f);
+    p1.velocity = glm::vec3(0.0f, 0.0f, 0.0f);
+    p1.acceleration = glm::vec3(0.0f, 0.0f, 0.0f);
+    p1.pamameters = glm::vec3(0.0f, 0.0f, 0.0f);
+    p1.deltaCs = glm::vec3(0.0f, 0.0f, 0.0f);
+    p1.mass = particle_mass;
+    p1.stuck_count = 0;
+
+    for (int n : recycle_list) {
+        p1.currPos = generateRandomVec3();
+        p1.currPos.y /= 4;
+        p1.currPos.y += (y_max - y_min) * 3 / 4;
+        p1.currPos.x /= 4;
+        //p1.currPos.x += (x_max - x_min) * 3 / 4;
+        p[n] = p1;
+    }
+    recycle_list.clear();
+}
+

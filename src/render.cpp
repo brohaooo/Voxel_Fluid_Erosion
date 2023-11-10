@@ -274,13 +274,28 @@ void set_up_particle_rendering(unsigned int& sphereVBO, unsigned int& sphereVAO,
     glEnableVertexAttribArray(0);
 
 
+    // glBindBuffer(GL_ARRAY_BUFFER, particle_instance_VBO);
+    // glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * 3 * particle_num, NULL, GL_DYNAMIC_DRAW);// dynamic draw, update every frame
+    // 
+    // 
+    // // set model matrix attribute pointer
+    // glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void*)0);
+    // glEnableVertexAttribArray(1);
+    // glVertexAttribDivisor(1, 1);
+
+
     glBindBuffer(GL_ARRAY_BUFFER, particle_instance_VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * 3 * particle_num, NULL, GL_DYNAMIC_DRAW);// dynamic draw, update every frame
-    glVertexAttribDivisor(1, 1);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * 6 * particle_num, NULL, GL_DYNAMIC_DRAW);// dynamic draw, update every frame
+
 
     // set model matrix attribute pointer
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void*)0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void*)0);
     glEnableVertexAttribArray(1);
+    glVertexAttribDivisor(1, 1);
+    // set color attribute pointer
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+    glVertexAttribDivisor(2, 1);
 
 
 }
@@ -374,16 +389,17 @@ void render_sphere_instanced(Shader& ourShader, unsigned int& sphere_VAO, GLsize
 
     // update particle position
     glBindBuffer(GL_ARRAY_BUFFER, particle_instance_VBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLfloat) * 3 * intance_num, particle_vertices);
+    // glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLfloat) * 3 * intance_num, particle_vertices);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLfloat) * 6 * intance_num, particle_vertices);
 
-    ourShader.setVec4("color", particle_color);
+    ourShader.setBool("is_black", false);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glDrawElementsInstanced(GL_TRIANGLES, 768, GL_UNSIGNED_INT, 0, intance_num);
 
     glCullFace(GL_FRONT);
     model = glm::scale(model, glm::vec3(1.05));
     ourShader.setMat4("model", model);
-    ourShader.setVec4("color", black);
+    ourShader.setBool("is_black", true);
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINES);
     glDrawElementsInstanced(GL_TRIANGLES, 768, GL_UNSIGNED_INT, 0, intance_num);
     glCullFace(GL_BACK);
@@ -455,12 +471,19 @@ void render_SPH_particles_x(std::vector<particle>& particles, Shader& ourShader,
 
 // render particles, use instanced rendering
 void render_SPH_particles(std::vector<particle>& particles, Shader& ourShader, unsigned int& sphere_VBO, unsigned int& sphere_VAO, unsigned int& sphere_EBO, unsigned int& particle_instance_VBO) {
-    GLfloat* particle_vertices = new GLfloat[particles.size() * 3];
+    GLfloat* particle_vertices = new GLfloat[particles.size() * 6];
     for (int i = 0; i < particles.size(); i++) {
         const particle p = particles[i];
-        particle_vertices[i * 3] = p.currPos[0];
-        particle_vertices[i * 3 + 1] = p.currPos[1];
-        particle_vertices[i * 3 + 2] = p.currPos[2];
+        particle_vertices[i * 6] = p.currPos[0];
+        particle_vertices[i * 6 + 1] = p.currPos[1];
+        particle_vertices[i * 6 + 2] = p.currPos[2];
+        GLfloat mass_visulization = 1.0f-((particle_maximum_mass-p.mass) / (particle_maximum_mass-particle_mass));//0(initial minimum mass) to 1(saturated mass), 
+        glm::vec3 color = glm::vec3(mass_visulization, 0.3f, 0.6f);
+        particle_vertices[i * 6 + 3] = color.x;
+        particle_vertices[i * 6 + 4] = color.y;
+        particle_vertices[i * 6 + 5] = color.z;
+
+        //particle_vertices[i * 3 + 2] = p.currPos[2];
 
     }
     render_sphere_instanced(ourShader, sphere_VAO, particles.size(), particle_instance_VBO, particle_vertices);

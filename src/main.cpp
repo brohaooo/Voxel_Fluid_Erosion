@@ -80,7 +80,7 @@ std::list<float> frameTime_list;
 
 
 // boundary, see details in physics.h
-extern const GLfloat x_max = 6.0f, x_min = 0.0f, y_max = 6.0f, y_min = 0.0f, z_max = 4.0f, z_min = 0.0f;
+extern const GLfloat x_max = 15, x_min = 0.0f, y_max = 10.0f, y_min = 0.0f, z_max = 4.0f, z_min = 0.0f;
 bounding_box boundary = bounding_box(x_max, x_min, y_max, y_min, z_max, z_min);
 
 // voxel field
@@ -103,7 +103,7 @@ int neighbour_grid_y_num = voxel_y_num;
 int neighbour_grid_z_num = voxel_z_num;
 neighbourhood_grid G = neighbourhood_grid(neighbour_grid_x_num, neighbour_grid_y_num, neighbour_grid_z_num);
 
-extern const int particle_num = 1400;
+extern const int particle_num = 2000;
 
 // particle set
 std::vector<particle> particles(particle_num);
@@ -116,8 +116,8 @@ bool isSpaceKeyPressed = false;
 bool isRightKeyPressed = false;
 bool next_frame_request = false;
 
-
-
+// the set of particles that will be recycled, updated every frame
+std::vector<int> recycle_list;
 
 int main()
 {
@@ -272,7 +272,7 @@ int main()
         if (regenerate) {
 			regenerate = false;
 			set_up_SPH_particles(particles);
-            set_up_voxel_field(V, voxel_density);
+            //set_up_voxel_field(V, voxel_density);
             G.clear_grid();
 		}
 
@@ -316,20 +316,23 @@ int main()
         // do the physics calculation here, this will be the bottleneck of the program
         if (!time_stop) {
             if (!is_realtime) {
-                calculate_SPH_movement(particles, 0.0167, V, G);
-                calculate_voxel_erosion(particles, 0.0167, V, G);
+                calculate_SPH_movement(particles, 0.0167, V, G, recycle_list);
+                calculate_voxel_erosion(particles, 0.0167, V, G, recycle_list);
+                recycle_particle(particles, recycle_list);
                 
             }
             else {
-                calculate_SPH_movement(particles, deltaTime, V, G);
-                calculate_voxel_erosion(particles, deltaTime, V, G);
+                calculate_SPH_movement(particles, deltaTime, V, G, recycle_list);
+                calculate_voxel_erosion(particles, deltaTime, V, G, recycle_list);
+                recycle_particle(particles, recycle_list);
             }
             
         }
         else {
             if (next_frame_request) {
-				calculate_SPH_movement(particles, 0.0167, V, G);
-                calculate_voxel_erosion(particles, 0.0167, V, G);
+				calculate_SPH_movement(particles, 0.0167, V, G, recycle_list);
+                calculate_voxel_erosion(particles, 0.0167, V, G, recycle_list);
+                recycle_particle(particles, recycle_list);
 				next_frame_request = false;
 			}
         }
