@@ -392,6 +392,7 @@ void render_sphere_instanced(Shader& ourShader, unsigned int& sphere_VAO, GLsize
     // glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLfloat) * 3 * intance_num, particle_vertices);
     glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLfloat) * 6 * intance_num, particle_vertices);
 
+    // render back faces to represnet contours
     ourShader.setBool("is_black", false);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glDrawElementsInstanced(GL_TRIANGLES, 768, GL_UNSIGNED_INT, 0, intance_num);
@@ -404,6 +405,11 @@ void render_sphere_instanced(Shader& ourShader, unsigned int& sphere_VAO, GLsize
     glDrawElementsInstanced(GL_TRIANGLES, 768, GL_UNSIGNED_INT, 0, intance_num);
     glCullFace(GL_BACK);
 }
+
+
+
+
+
 
 
 
@@ -491,15 +497,36 @@ void render_SPH_particles(std::vector<particle>& particles, Shader& ourShader, u
 
 
 // render voxel field
+// void render_voxel_field(voxel_field& V, Shader& ourShader, unsigned int cube_VBO[2], unsigned int cube_VAO[2]) {
+// 
+//     for (int i = 0; i < voxel_x_num; i++) {
+//         for (int j = 0; j < voxel_y_num; j++) {
+//             for (int k = 0; k < voxel_z_num; k++) {
+//                 voxel v = V.get_voxel(i, j, k);
+//                 if (v.exist&&!v.debug) {
+//                     glm::mat4 model = glm::scale(glm::translate(glm::mat4(1.0f), voxel_to_world(i, j, k)), glm::vec3(voxel_size_scale));
+//                     render_cube(ourShader, cube_VBO, cube_VAO, model,v.color);
+//                 }
+//                 // debug
+//                 if (v.debug) {
+//                     glm::mat4 model = glm::scale(glm::translate(glm::mat4(1.0f), voxel_to_world(i, j, k)), glm::vec3(voxel_size_scale));
+//                     render_cube(ourShader, cube_VBO, cube_VAO, model, glm::vec4(0.5f, 0.f, 1.f, 1.0f));
+//                 }
+//             }
+//         }
+//     }
+// }
+
+// render voxel field
 void render_voxel_field(voxel_field& V, Shader& ourShader, unsigned int cube_VBO[2], unsigned int cube_VAO[2]) {
 
     for (int i = 0; i < voxel_x_num; i++) {
         for (int j = 0; j < voxel_y_num; j++) {
             for (int k = 0; k < voxel_z_num; k++) {
                 voxel v = V.get_voxel(i, j, k);
-                if (v.exist&&!v.debug) {
+                if (v.exist && !v.debug) {
                     glm::mat4 model = glm::scale(glm::translate(glm::mat4(1.0f), voxel_to_world(i, j, k)), glm::vec3(voxel_size_scale));
-                    render_cube(ourShader, cube_VBO, cube_VAO, model,v.color);
+                    render_cube(ourShader, cube_VBO, cube_VAO, model, v.color);
                 }
                 // debug
                 if (v.debug) {

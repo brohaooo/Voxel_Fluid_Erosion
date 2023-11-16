@@ -20,13 +20,13 @@ extern const float voxel_size_scale;
 
 // set up voxel field
 void set_up_voxel_field(voxel_field& V, float voxel_density) {
-    // common destroyable voxel
+    //// common destroyable voxel
     voxel v1;
-    float density_ratio = voxel_density / voxel_maximum_density;
-    v1.color = glm::vec4(0.5f, density_ratio, density_ratio, 1.0f);
     v1.density = voxel_density;
     v1.exist = true;
+    v1.is_new = false;
     v1.not_destroyable = false;
+    v1.update_color();
     for (int i = 0; i < 13; i++) {
         for (int j = 0; j < 12-i; j++) {
             for (int k = 0; k < 8; k++) {
@@ -34,14 +34,14 @@ void set_up_voxel_field(voxel_field& V, float voxel_density) {
             }
         }
     }
-
+    
     // a much weaker voxel, used to represent the voxel that is about to be destroyed
     voxel v2;
-    density_ratio = (voxel_density/2.0f) / voxel_maximum_density;
-    v2.color = glm::vec4(0.5f, density_ratio, density_ratio, 1.0f);
     v2.density = (voxel_density / 2.0f);
     v2.exist = true;
+    v2.is_new = false;
     v2.not_destroyable = false;
+    v2.update_color();
     for (int i = 15; i < 17; i++) {
         for (int j = 0; j < 12; j++) {
             for (int k = 0; k < 8; k++) {
@@ -54,11 +54,11 @@ void set_up_voxel_field(voxel_field& V, float voxel_density) {
     // not destroyable voxel, we can put it at the bottom of the voxel field
     // to represent the ground
     voxel v3;
-    density_ratio = voxel_not_destroyable_min_density / voxel_maximum_density;
-    v3.color = glm::vec4(0.5f, density_ratio, density_ratio, 1.0f);
     v3.density = voxel_not_destroyable_min_density;
     v3.exist = true;
+    v3.is_new = false;
     v3.not_destroyable = true;
+    v3.update_color();
     for (int i = 0; i < 30; i++) {
         for (int j = 0; j < 1; j++) {
             for (int k = 0; k < 8; k++) {
@@ -108,7 +108,14 @@ void set_up_SPH_particles(std::vector<particle>& P) {
 
 void voxel::update_color() {
 	float density_ratio = density / voxel_maximum_density;
-	color = glm::vec4(0.5f, density_ratio, density_ratio, 1.0f);
+    if (!this->is_new) {
+        glm::vec4 mix_color = glm::mix(dark_red, soil_color, density_ratio);
+        color = mix_color;
+    }
+    else {
+        glm::vec4 mix_color = glm::mix(dark_red, green, density_ratio);
+        color = glm::vec4(0.1f, 0.9f, density_ratio, 1.0f);
+    }
 }
 
 
@@ -544,7 +551,9 @@ glm::vec3 generateRandomVec3(float _x_max, float _x_min, float _y_max, float _y_
 
 
 void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxel_field & V, neighbourhood_grid& G, std::vector<int>& recycle_list) {
-    int particle_num = p.size();
+    int particle_num = std::min(current_particle_num, (int)p.size());
+    //std::cout << "particle_num: " << particle_num << std::endl;
+    // int particle_num = p.size();
     //refresh_debug(V);
     // first, re-genereate the neighbourhood grid
     G.clear_grid();
@@ -774,27 +783,39 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
 
             current_v = &V.get_voxel(current_voxel_index[0], current_voxel_index[1], current_voxel_index[2]);
             if (current_v->exist) {
-                // TRICK: I let the particle stop a little bit earlier than the computed collision point to avoid the case that the particle is stucking inside the voxel
+                // TRICK: I let the particle stop a little bit earlier than the true computed collision point to avoid the case that the particle is stucking inside the voxel
                 // caused by floating point error
                 // get the collision point
                 glm::vec3 collision_point = old_position + (t_current) * ray_direction * 0.999f;// some trick
-                new_position = collision_point;
+                //new_position = collision_point;
                 //std::vector<float> collide_voxel_6_face = voxel_to_world_6_face(current_voxel_index[0], current_voxel_index[1], current_voxel_index[2]);
                 std::vector<float> collide_voxel_6_face = voxel_to_world_6_face_extend(current_voxel_index[0], current_voxel_index[1], current_voxel_index[2]);//trick version
                 // reverse the velocity  component that is in the direction of the collision face
                 if (x_or_y_or_z == 0) {
                     new_position.x = collide_voxel_6_face[(1 + sign_x)/2];
                     new_velocity.x = -old_velocity.x;
+                    collision_point.x = new_position.x;
                 }
                 else if (x_or_y_or_z == 1) {
 					new_position.y = collide_voxel_6_face[(5 + sign_y) / 2];
                     new_velocity.y = -old_velocity.y;
+                    collision_point.y = new_position.y;
 				}
                 else if (x_or_y_or_z == 2) {
 					new_position.z = collide_voxel_6_face[(9 + sign_z) / 2];
                     new_velocity.z = -old_velocity.z;
+                    collision_point.z = new_position.z;
 				}
-                new_velocity *= 0.8f;              
+                new_velocity *= 0.8f;
+
+                // quickly detect if the particle's new bounced position is still inside the voxel (just fast approximation, not physical based)
+                current_voxel_index = world_to_voxel(old_position, V);
+                current_v = &V.get_voxel(current_voxel_index[0], current_voxel_index[1], current_voxel_index[2]);
+                if (current_v->exist) {
+                    new_position = collision_point;
+                }
+					
+
                 break;
             }
 
@@ -999,7 +1020,7 @@ void calculate_voxel_erosion(std::vector<particle>& p, float frameTimeDiff, voxe
                             
 
                             // adjust this part to control the deposition-erosion speed, very important here
-                            weight *=  1.0f / (length(p[n].estimated_velocity)*0.75f + 0.75f);// speed penalty, if the particle is moving fast, then it will deposit less mass under the same time interval
+                            weight *=  1.0f / (length(p[n].estimated_velocity)*0.55f + 0.75f);// speed penalty, if the particle is moving fast, then it will deposit less mass under the same time interval
                             
                             if (v->density < voxel_maximum_density) {// if the voxel is not full, then it can gain mass
                                 v->density += frameTimeDiff * voxel_damage_scale * weight;
@@ -1049,6 +1070,7 @@ void calculate_voxel_erosion(std::vector<particle>& p, float frameTimeDiff, voxe
                             // so now we remove all particles that are square_root(3) * voxel_size_scale away from the new voxel center
                             if (r < voxel_size_scale*1.05) { 
                                 new_V->density += (p[n].mass- particle_mass) * voxel_damage_scale / particle_mass_transfer_ratio;
+                                new_V->is_new = true;
                                 new_V->update_color();
                                 // clear particles mass
                                 p[n].mass = particle_mass;

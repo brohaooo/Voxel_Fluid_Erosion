@@ -34,7 +34,7 @@ extern Shader* global_ourShader;
 // particle system part:
 // definition of the constants
 #define PI_FLOAT 3.1415927410125732421875f
-// extern const int particle_num = 10;
+// const int particle_num = 2000;
 const float particle_radius = 0.025f;
 const float particle_resting_density = 1000.0f;
 const float particle_mass = 75.0f; // initial mass
@@ -54,6 +54,8 @@ const float voxel_maximum_density = 400000.0f; // if bigger than this, the voxel
 const float particle_mass_transfer_ratio = 0.0005f; // the ratio of voxel mass vs particle mass ( delta V_mass / delta P_mass)
 const float diffusion_rate = 0.00006f; // the rate that controls the diffusion of the mass from one particle to another particle
 
+extern int current_particle_num; // can use this to control the number of particles in the system, actual particle number is min(particle_num,current_particle_num)
+
 
 
 // this will inicate the beginning of the voxel field(x=y=z=0) in world space
@@ -72,6 +74,7 @@ struct voxel {
     bool exist; // whether the voxel exists, if not, the density and color are meaningless
     bool debug = false;
     bool not_destroyable = false;
+    bool is_new = false;
     float density;
     glm::vec4 color;
     void update_color();
@@ -181,6 +184,9 @@ extern const int particle_num;
 
 // pre-defined colors
 extern glm::vec4 red;
+extern glm::vec4 dark_red;
+extern glm::vec4 yellow;
+extern glm::vec4 soil_color;
 extern glm::vec4 green;
 extern glm::vec4 blue;
 extern glm::vec4 black;

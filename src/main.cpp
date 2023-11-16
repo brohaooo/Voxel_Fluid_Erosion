@@ -32,6 +32,9 @@ int numThreads = 4; // 指定线程数量
 
 // some color setting in data_structures
 extern glm::vec4 red = glm::vec4(1.f, 0.f, 0.f, 1.0f);
+extern glm::vec4 dark_red = glm::vec4(0.5f, 0.f, 0.f, 1.0f);
+extern glm::vec4 soil_color = glm::vec4(0.65f, 0.45f, 0.15f, 1.0f);
+extern glm::vec4 yellow = glm::vec4(1.f, 1.f, 0.f, 1.0f);
 extern glm::vec4 green = glm::vec4(0.f, 1.f, 0.f, 1.0f);
 extern glm::vec4 blue = glm::vec4(0.f, 0.f, 1.f, 1.0f);
 extern glm::vec4 black = glm::vec4(0.f, 0.f, 0.f, 1.0f);
@@ -104,6 +107,7 @@ int neighbour_grid_z_num = voxel_z_num;
 neighbourhood_grid G = neighbourhood_grid(neighbour_grid_x_num, neighbour_grid_y_num, neighbour_grid_z_num);
 
 extern const int particle_num = 2000;
+int current_particle_num;
 
 // particle set
 std::vector<particle> particles(particle_num);
@@ -122,7 +126,7 @@ std::vector<int> recycle_list;
 int main()
 {
     omp_set_num_threads(numThreads); // 设置线程数量
-
+    current_particle_num = 0;
 
 
 
@@ -269,6 +273,13 @@ int main()
     // render loop
     while (!glfwWindowShouldClose(window))
     {
+        // increase the number of particles gradually
+        if (current_particle_num < particle_num && !time_stop) {
+			current_particle_num+=20;
+            //std::cout << "current particle num: " << current_particle_num << std::endl;
+		}
+
+
         if (regenerate) {
 			regenerate = false;
 			set_up_SPH_particles(particles);
