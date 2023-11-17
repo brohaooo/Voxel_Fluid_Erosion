@@ -4,8 +4,8 @@
 
 It's a Hydraulic Erosion simulation program using Smoothed Particle Hydrodynamics. I use voxels (like minecraft's cubes) to represent interactive landscapes or solid objects.
 
-![](sample_images/SPH.png)
-
+![](sample_images/SPH_1.png)
+![](sample_images/SPH_2.png)
 
 ## What have I implemented
 
