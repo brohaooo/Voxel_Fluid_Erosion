@@ -4,6 +4,9 @@
 
 It's a Hydraulic Erosion simulation program using Smoothed Particle Hydrodynamics. I use voxels (like minecraft's cubes) to represent interactive landscapes or solid objects.
 
+![](sample_images/SPH.png)
+
+
 ## What have I implemented
 
 * SPH particle system in CPU (my particle has many interactions with each other and the environment, it's very hard to implment SPH with complex behavior in GPU)
