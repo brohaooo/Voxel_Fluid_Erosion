@@ -56,7 +56,7 @@ const float diffusion_rate = 0.00006f; // the rate that controls the diffusion o
 
 extern int current_particle_num; // can use this to control the number of particles in the system, actual particle number is min(particle_num,current_particle_num)
 
-
+extern float particle_render_scale;
 
 // this will inicate the beginning of the voxel field(x=y=z=0) in world space
 extern const float voxel_x_origin;
@@ -157,7 +157,7 @@ struct particle {
     float      mass;
     glm::vec3  estimated_velocity = glm::vec3(0,0,0); // this is a more accurate velocity estimation, to check whether the particle is stopped 
     
-    
+    // ---11.16.2023 update: I added it back, because still some particles are stucked---
     // use this to check whether the particle has been stucked for a while, if stuck, then it will be recycled
     // however, I didn't use this in this project till now, because I avoided stucking via other methods
     // but this might be useful in the future, I might activate stuck_count if some other stucking cases happen
@@ -207,7 +207,8 @@ void set_up_CoordinateAxes(unsigned int& coordi_VBO, unsigned int& coordi_VAO);
 void renderCoordinateAxes(Shader& ourShader, unsigned int& coordi_VBO, unsigned int& coordi_VAO);
 
 
-
+// set up particle rendering, instanced rendering
+void set_up_cube_base_instance_rendering(unsigned int cube_VBO[2], unsigned int cube_VAO[2], unsigned int& voxel_instance_VBO);
 // set up a basic cube with VBO and VAO
 void set_up_cube_base_rendering(unsigned int cube_VBO[2], unsigned int cube_VAO[2]);
 
@@ -239,8 +240,10 @@ void render_SPH_particles_x(std::vector<particle>& particles, Shader& ourShader,
 void render_SPH_particles(std::vector<particle>& particles, Shader& ourShader, unsigned int& sphere_VBO, unsigned int& sphere_VAO, unsigned int& sphere_EBO, unsigned int& particle_instance_VBO);
 
 
-// render voxel field
-void render_voxel_field(voxel_field& V, Shader& ourShader, unsigned int cube_VBO[2], unsigned int cube_VAO[2]);
+// render voxel field, not instanced rendering
+void render_voxel_field_x(voxel_field& V, Shader& ourShader, unsigned int cube_VBO[2], unsigned int cube_VAO[2]);
+// render voxel field, instanced rendering
+void render_voxel_field(voxel_field& V, Shader& ourShader, unsigned int cube_VBO[2], unsigned int cube_VAO[2], unsigned int& voxel_instance_VBO);
 
 
 

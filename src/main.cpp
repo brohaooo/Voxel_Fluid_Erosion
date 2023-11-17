@@ -108,6 +108,7 @@ neighbourhood_grid G = neighbourhood_grid(neighbour_grid_x_num, neighbour_grid_y
 
 extern const int particle_num = 2000;
 int current_particle_num;
+float particle_render_scale = 0.17;
 
 // particle set
 std::vector<particle> particles(particle_num);
@@ -118,6 +119,7 @@ bool regenerate = false;
 // tracking space key press
 bool isSpaceKeyPressed = false;
 bool isRightKeyPressed = false;
+bool isDownKeyPressed = false;
 bool next_frame_request = false;
 
 // the set of particles that will be recycled, updated every frame
@@ -218,8 +220,10 @@ int main()
     // set up basic cube
     unsigned int cube_VBO[2];
     unsigned int cube_VAO[2];
+    unsigned int voxel_instance_VBO;
     
-    set_up_cube_base_rendering(cube_VBO, cube_VAO);
+    set_up_cube_base_instance_rendering(cube_VBO, cube_VAO,voxel_instance_VBO);
+    //set_up_cube_base_rendering(cube_VBO, cube_VAO);
 
     
 
@@ -367,7 +371,8 @@ int main()
         // render_cube(ourShader, cube_VBO, cube_VAO, cube_position);
         // render_cube(ourShader, cube_VBO, cube_VAO, glm::translate(cube_position, glm::vec3(1.0f, 0.0f, 0.0f)));
 
-        render_voxel_field(V, ourShader, cube_VBO, cube_VAO);
+        //render_voxel_field_x(V, ourShader, cube_VBO, cube_VAO);
+        render_voxel_field(V, instance_shader, cube_VBO, cube_VAO, voxel_instance_VBO);
 
         render_boundary(ourShader, bound_VBO, bound_VAO);
 
@@ -479,8 +484,22 @@ void processInput(GLFWwindow *window)
         }
         isRightKeyPressed = true;
     }
+    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
+        if (!isDownKeyPressed) {
+            if (particle_render_scale >= 0.05) {
+                particle_render_scale -= 0.05;
+            }
+            else {
+                particle_render_scale = 0.17;
+            }
+		}
+        
+        isDownKeyPressed = true;
+	}
+
     else {
         isRightKeyPressed = false;
+        isDownKeyPressed = false;
     }
 }
 

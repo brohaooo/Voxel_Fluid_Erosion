@@ -923,24 +923,24 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
 			}
         }
         // stuck check
-        // voxel * current_V = &V.get_voxel(current_grid[0], current_grid[1], current_grid[2]);
-        // if (current_V->exist) {
-		// 	p[i].stuck_count++;
-		// }
-        // else
-        // {
-        //     p[i].stuck_count = 0;
-        // }
+        voxel * current_V = &V.get_voxel(current_grid[0], current_grid[1], current_grid[2]);
+        if (current_V->exist) {
+			p[i].stuck_count++;
+		}
+        else
+        {
+            p[i].stuck_count = 0;
+        }
         //  if it stucks for too long, then treat it as deposited into the voxel
         //  unleash its mass and recycle it
-        // if (p[i].stuck_count > 40)
-        // {
-        //     current_V->density += (p[i].mass - particle_mass) * voxel_damage_scale / particle_mass_transfer_ratio;
-        //     current_V->update_color();
-        //     // clear particles mass
-        //     p[i].mass = particle_mass;
-		// 	recycle_list.push_back(i);
-		// }
+        if (p[i].stuck_count > 40)
+        {
+            current_V->density += (p[i].mass - particle_mass) * voxel_damage_scale / particle_mass_transfer_ratio;
+            current_V->update_color();
+            // clear particles mass
+            p[i].mass = particle_mass;
+			recycle_list.push_back(i);
+		}
 
     }
 
@@ -1020,7 +1020,7 @@ void calculate_voxel_erosion(std::vector<particle>& p, float frameTimeDiff, voxe
                             
 
                             // adjust this part to control the deposition-erosion speed, very important here
-                            weight *=  1.0f / (length(p[n].estimated_velocity)*0.55f + 0.75f);// speed penalty, if the particle is moving fast, then it will deposit less mass under the same time interval
+                            weight *=  1.0f / (length(p[n].estimated_velocity)*0.45f + 0.65f);// speed penalty, if the particle is moving fast, then it will deposit less mass under the same time interval
                             
                             if (v->density < voxel_maximum_density) {// if the voxel is not full, then it can gain mass
                                 v->density += frameTimeDiff * voxel_damage_scale * weight;
