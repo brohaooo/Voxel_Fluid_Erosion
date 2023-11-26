@@ -29,7 +29,7 @@ void set_up_voxel_field(voxel_field& V, float voxel_density) {
     v1.update_color();
     for (int i = 0; i < 13; i++) {
         for (int j = 0; j < 12-i; j++) {
-            for (int k = 0; k < 8; k++) {
+            for (int k = 0; k < 6; k++) {
                 V.set_voxel(i, j, k, v1);
             }
         }
@@ -37,14 +37,14 @@ void set_up_voxel_field(voxel_field& V, float voxel_density) {
     
     // a much weaker voxel, used to represent the voxel that is about to be destroyed
     voxel v2;
-    v2.density = (voxel_density / 2.0f);
+    v2.density = (voxel_density / 1.5f);
     v2.exist = true;
     v2.is_new = false;
     v2.not_destroyable = false;
     v2.update_color();
-    for (int i = 15; i < 17; i++) {
+    for (int i = 14; i < 16; i++) {
         for (int j = 0; j < 12; j++) {
-            for (int k = 0; k < 8; k++) {
+            for (int k = 0; k < 6; k++) {
                 V.set_voxel(i, j, k, v2);
             }
         }
@@ -59,9 +59,9 @@ void set_up_voxel_field(voxel_field& V, float voxel_density) {
     v3.is_new = false;
     v3.not_destroyable = true;
     v3.update_color();
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 24; i++) {
         for (int j = 0; j < 1; j++) {
-            for (int k = 0; k < 8; k++) {
+            for (int k = 0; k < 6; k++) {
                 V.set_voxel(i, j, k, v3);
             }
         }
@@ -809,7 +809,7 @@ void calculate_SPH_movement(std::vector<particle> & p, float frameTimeDiff, voxe
                 new_velocity *= 0.8f;
 
                 // quickly detect if the particle's new bounced position is still inside the voxel (just fast approximation, not physical based)
-                current_voxel_index = world_to_voxel(old_position, V);
+                current_voxel_index = world_to_voxel(new_position, V);
                 current_v = &V.get_voxel(current_voxel_index[0], current_voxel_index[1], current_voxel_index[2]);
                 if (current_v->exist) {
                     new_position = collision_point;
